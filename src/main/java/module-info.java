@@ -4,6 +4,7 @@ module com.example.musicfinder {
 
     requires org.controlsfx.controls;
     requires org.kordamp.ikonli.javafx;
+    requires com.opencsv;
 
     opens com.example.musicfinder to javafx.fxml;
     exports com.example.musicfinder;
