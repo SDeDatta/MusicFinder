@@ -15,7 +15,18 @@ public class AppLoader
         for (Song song : songList) {
             songMap.put(song.getTrackId(), song);
         }
-        // Quick sanity check - should print a real song
-        System.out.println(songMap.get("5vjLSffimiIP26QG5WcN2K"));
+
+// Check total count — should be close to 114,000
+        System.out.println("Total songs loaded: " + songList.size());
+
+// Print the first 5 songs to verify fields are parsing correctly
+        for (int i = 0; i < 5; i++) {
+            System.out.println(songList.get(i));
+        }
+
+// Spot check a specific field to make sure values are sensible
+// Energy should be between 0.0 and 1.0
+        System.out.println("First song energy: " + songList.get(0).getEnergy());
+        System.out.println("First song valence: " + songList.get(0).getValence());
     }
 }

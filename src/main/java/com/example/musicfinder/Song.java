@@ -28,12 +28,13 @@ public class Song
         private boolean explicit;
         private int key;
         private int timeSignature;
+        private int mode;
 
         public Song(String trackId, String trackName, String artists, String albumName,
                     String genre, int popularity, double energy, double valence,
                     double danceability, double acousticness, double instrumentalness,
                     double liveness, double speechiness, double loudness, double tempo,
-                    int durationMs, boolean explicit, int key, int timeSignature) {
+                    int durationMs, boolean explicit, int key, int timeSignature, int mode) {
                 this.trackId = trackId;
                 this.trackName = trackName;
                 this.artists = artists;
@@ -53,6 +54,7 @@ public class Song
                 this.explicit = explicit;
                 this.key = key;
                 this.timeSignature = timeSignature;
+                this.mode = mode;
                 // ... assign the rest
         }
 
