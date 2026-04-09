@@ -139,7 +139,12 @@ public class Song
                         instrumentalness,
                         liveness,
                         speechiness,
-                        tempo / 250.0  // normalize tempo to 0-1 scale since it's in BPM
+                        (loudness + 60) / 60.0,   // normalize: -60→0, 0→1
+                        tempo / 250.0              // normalize: 0→0, 250BPM→1
                 };
+        }
+        public String toString() {
+                return String.format("\"%s\" by %s | Genre: %s | Popularity: %d | Energy: %.2f | Valence: %.2f",
+                        trackName, artists, genre, popularity, energy, valence);
         }
 }

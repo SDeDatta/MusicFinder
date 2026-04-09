@@ -25,10 +25,7 @@ public class DataReader {
         try (CSVReader reader = new CSVReader(new FileReader(filePath))) {
 
             // Skip the header row (the first row contains column names, not data)
-            String[] headers = reader.readNext();
-            for (int i = 0; i < headers.length; i++) {
-                System.out.println("Column " + i + ": " + headers[i]);
-            }
+            reader.readNext(); // skip header row
 
             String[] row;
 
