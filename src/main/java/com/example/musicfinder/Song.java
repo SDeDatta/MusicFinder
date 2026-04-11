@@ -132,15 +132,15 @@ public class Song
 
         public double[] toFeatureVector() {
                 return new double[]{
-                        energy,
-                        valence,
-                        danceability,
-                        acousticness,
-                        instrumentalness,
-                        liveness,
-                        speechiness,
-                        (loudness + 60) / 60.0,   // normalize: -60→0, 0→1
-                        tempo / 250.0              // normalize: 0→0, 250BPM→1
+                        energy         * 1.5,  // boosted — strong mood indicator
+                        valence        * 1.5,  // boosted — strong mood indicator
+                        danceability   * 1.0,  // normal weight
+                        acousticness   * 1.3,  // slightly boosted — important for texture
+                        instrumentalness * 0.8, // slightly reduced
+                        liveness       * 0.5,  // reduced — rarely query-relevant
+                        speechiness    * 0.5,  // reduced — rarely query-relevant
+                        (loudness + 60) / 60.0 * 1.0,
+                        tempo / 250.0  * 1.0
                 };
         }
         public String toString() {

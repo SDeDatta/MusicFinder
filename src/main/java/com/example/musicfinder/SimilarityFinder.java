@@ -8,10 +8,13 @@ public class SimilarityFinder {
      * Finds the top N songs most similar to the seed song
      * using cosine similarity on normalized audio feature vectors
      */
+    // How much genre influences the final score vs audio features
+// 0.7 audio + 0.3 genre = genre matters but audio features dominate
+    private static final double AUDIO_WEIGHT = 0.7;
+    private static final double GENRE_WEIGHT = 0.3;
+
     public static List<Song> findSimilar(Song seed, List<Song> allSongs, int topN) {
 
-        // Priority queue sorted by score ascending — lowest score gets evicted
-        // when queue exceeds topN, keeping only the best results
         PriorityQueue<double[]> topSongs = new PriorityQueue<>(
                 Comparator.comparingDouble(a -> a[0])
         );
@@ -19,21 +22,26 @@ public class SimilarityFinder {
         for (int i = 0; i < allSongs.size(); i++) {
             Song candidate = allSongs.get(i);
 
-            // Don't compare a song to itself
             if (candidate.getTrackId().equals(seed.getTrackId())) continue;
 
-            double score = cosineSimilarity(
+            // Compute audio feature similarity
+            double audioScore = cosineSimilarity(
                     seed.toFeatureVector(),
                     candidate.toFeatureVector()
             );
 
-            topSongs.offer(new double[]{score, i});
+            // Compute genre similarity
+            double genreScore = genreSimilarity(seed, candidate);
 
-            // Evict lowest scorer when we exceed topN (based on what person asks for)
+            // Blend into one final score
+            double finalScore = (AUDIO_WEIGHT * audioScore)
+                    + (GENRE_WEIGHT * genreScore);
+
+            topSongs.offer(new double[]{finalScore, i});
+
             if (topSongs.size() > topN) topSongs.poll();
         }
 
-        // Collect results — note they come out lowest first so we reverse
         List<Song> results = new ArrayList<>();
         for (double[] entry : topSongs) {
             results.add(allSongs.get((int) entry[1]));
@@ -41,7 +49,25 @@ public class SimilarityFinder {
         Collections.reverse(results);
         return results;
     }
+    /**
+     * Returns a genre similarity score between two songs.
+     * 1.0 = exact same genre
+     * 0.5 = genres share a root word (e.g. "indie-pop" and "indie")
+     * 0.0 = completely different genres
+     */
+    public static double genreSimilarity(Song a, Song b) {
+        String genreA = a.getGenre().toLowerCase().trim();
+        String genreB = b.getGenre().toLowerCase().trim();
 
+        // Exact match
+        if (genreA.equals(genreB)) return 1.0;
+
+        // Partial match — one genre contains the other (e.g. "pop" in "indie-pop")
+        if (genreA.contains(genreB) || genreB.contains(genreA)) return 0.5;
+
+        // No match
+        return 0.0;
+    }
     /**
      * Cosine similarity between two feature vectors.
      * Returns 0.0 (totally different) to 1.0 (identical)

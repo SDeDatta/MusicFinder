@@ -1,14 +1,16 @@
 package com.example.musicfinder;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class AppLoader
-{
+public class AppLoader {
     public static void main(String[] args) {
+
         // Load all songs from CSV into a list
         List<Song> songList = DataReader.loadSongs("data/dataset.csv");
+        System.out.println("Total songs loaded: " + songList.size());
 
         // Build a HashMap for O(1) lookup by track ID
         Map<String, Song> songMap = new HashMap<>();
@@ -16,26 +18,28 @@ public class AppLoader
             songMap.put(song.getTrackId(), song);
         }
 
-// Check total count — should be close to 114,000
-        System.out.println("Total songs loaded: " + songList.size());
+        // Deduplicate using HashMap values
+        List<Song> dedupedList = new ArrayList<>(songMap.values());
+        System.out.println("After deduplication: " + dedupedList.size() + " songs");
 
-// Search for Clocks by Coldplay by name
+        // Find seed song
         Song seed = null;
-        for (Song s : songList) {
-            if (s.getTrackName().equalsIgnoreCase("The Scientist")&& s.getArtists().equalsIgnoreCase("Coldplay")) {
+        for (Song s : dedupedList) {
+            if (s.getTrackName().equalsIgnoreCase("The Scientist")
+                    && s.getArtists().toLowerCase().contains("coldplay")) {
                 seed = s;
                 break;
             }
         }
 
-// If found, run the similarity finder
+        // Run similarity finder on deduped list
         if (seed != null) {
             System.out.println("Seed song: " + seed);
-            List<Song> similar = SimilarityFinder.findSimilar(seed, songList, 10);
+            List<Song> similar = SimilarityFinder.findSimilar(seed, dedupedList, 10);
             System.out.println("\nTop 10 similar songs:");
             similar.forEach(System.out::println);
         } else {
-            System.out.println("Clocks not found in dataset");
+            System.out.println("Seed song not found in dataset");
         }
     }
 }
