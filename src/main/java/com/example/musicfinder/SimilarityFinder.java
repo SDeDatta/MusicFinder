@@ -14,7 +14,7 @@ public class SimilarityFinder {
     private static final double GENRE_WEIGHT = 0.3;
 
     public static List<Song> findSimilar(Song seed, List<Song> allSongs, int topN) {
-
+        // Organizes songs based on their similarity score (see line 40 with topSongs input)
         PriorityQueue<double[]> topSongs = new PriorityQueue<>(
                 Comparator.comparingDouble(a -> a[0])
         );
