@@ -10,7 +10,6 @@ public class AppLoader {
 
         // Load all songs from CSV into a list
         List<Song> songList = DataReader.loadSongs("data/dataset.csv");
-        //System.out.println("Total songs loaded: " + songList.size());
 
         // Build a HashMap for O(1) lookup by track ID
         Map<String, Song> songMap = new HashMap<>();
@@ -20,45 +19,58 @@ public class AppLoader {
 
         // Deduplicate using HashMap values
         List<Song> dedupedList = new ArrayList<>(songMap.values());
-       // System.out.println("After deduplication: " + dedupedList.size() + " songs");
 
-        // Find seed song (placeholder before natural language)
-        Song seed = null;
-        for (Song s : dedupedList) {
-            if (s.getTrackName().equalsIgnoreCase("The Scientist")
-                    && s.getArtists().toLowerCase().contains("coldplay")) {
-                seed = s;
-                break;
-            }
-        }
         // Build the graph
         SongGraph graph = new SongGraph(songMap);
         graph.buildGraph(dedupedList, 0.90);
-        List<Song> candidates = graph.bfsTraversal(seed.getTrackId(), 2, 500);
-        List<Song> graphResults = SimilarityFinder.findSimilar(seed, candidates, 10);
-        System.out.println("Top 10 recommendations:");
-        graphResults.forEach(System.out::println);
 
-// *///Test BFS from The Scientist
-//        System.out.println("\nBFS neighbors of The Scientist:");
-//        System.out.println("Direct neighbors: " + graph.getDegree(seed.getTrackId()));
-//
-//        //List<Song> candidates = graph.bfsTraversal(seed.getTrackId(), 2, 500);
-//        System.out.println("BFS candidate pool size: " + candidates.size());
-//
-//// Rank the BFS candidate pool using SimilarityFinder
-//        //List<Song> graphResults = SimilarityFinder.findSimilar(seed, candidates, 10);
-//
-//        System.out.println("\nTop 10 from graph-based search:");
-//        graphResults.forEach(System.out::println);
-//        // Run similarity finder on deduped list
-//        if (seed != null) {
-//            System.out.println("Seed song: " + seed);
-//            List<Song> similar = SimilarityFinder.findSimilar(seed, dedupedList, 10);
-//            System.out.println("\nTop 10 similar songs:");
-//            similar.forEach(System.out::println);
-//        } else {
-//            System.out.println("Seed song not found in dataset");
-//        }
+        // Test queries
+        String[] testQueries = {
+                "songs like The Scientist by Coldplay",
+                "songs like The Scientist by Coldplay but more energetic",
+                "songs like The Scientist by Coldplay but less mainstream",
+                "songs like The Scientist by Coldplay but more dreamy and acoustic"
+        };
+
+        for (String query : testQueries) {
+            System.out.println("\n========================================");
+            System.out.println("Query: " + query);
+
+            // Send query to LLM — returns weights AND seed song info
+            QueryResult result = QueryUnderstanding.interpretQuery(query);
+            System.out.println("LLM interpreted: " + result);
+
+            // Find seed song using what the LLM extracted
+            Song seed = null;
+            if (result.getSeedSong() != null) {
+                for (Song s : dedupedList) {
+                    boolean nameMatch = s.getTrackName()
+                            .equalsIgnoreCase(result.getSeedSong());
+                    boolean artistMatch = result.getSeedArtist() == null ||
+                            s.getArtists().toLowerCase()
+                                    .contains(result.getSeedArtist().toLowerCase());
+                    if (nameMatch && artistMatch) {
+                        seed = s;
+                        break;
+                    }
+                }
+            }
+
+            if (seed == null) {
+                System.out.println("Seed song not found: " + result.getSeedSong());
+                continue;
+            }
+
+            System.out.println("Seed song found: " + seed);
+
+            // Get recommendations using LLM-generated weights
+            List<Song> candidates = graph.bfsTraversal(seed.getTrackId(), 2, 500);
+            List<Song> recommendations = SimilarityFinder.findSimilar(
+                    seed, candidates, 10, result.getWeights()
+            );
+
+            System.out.println("Top 10 recommendations:");
+            recommendations.forEach(System.out::println);
+        }
     }
 }
