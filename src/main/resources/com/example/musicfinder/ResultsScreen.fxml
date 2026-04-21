@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.example.musicfinder.ResultsController"
+      styleClass="root-pane"
+      spacing="0">
+
+    <!-- Top bar -->
+    <HBox styleClass="results-topbar" alignment="CENTER_LEFT" spacing="16">
+        <padding><Insets top="16" right="24" bottom="16" left="24"/></padding>
+
+        <Button text="← Back" styleClass="back-button" onAction="#handleBack"/>
+
+        <VBox spacing="2" HBox.hgrow="ALWAYS">
+            <Label fx:id="queryLabel" styleClass="query-display" text=""/>
+            <Label fx:id="seedLabel"  styleClass="seed-display"  text=""/>
+        </VBox>
+    </HBox>
+
+    <!-- Scrollable results grid -->
+    <ScrollPane styleClass="results-scroll"
+                fitToWidth="true"
+                VBox.vgrow="ALWAYS">
+
+        <FlowPane fx:id="resultsPane"
+                  styleClass="results-flow"
+                  hgap="20"
+                  vgap="20">
+            <padding><Insets top="24" right="24" bottom="24" left="24"/></padding>
+        </FlowPane>
+
+    </ScrollPane>
+
+</VBox>

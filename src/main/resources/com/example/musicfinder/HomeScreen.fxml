@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.geometry.*?>
+
+<StackPane xmlns="http://javafx.com/javafx/21"
+           xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.example.musicfinder.HomeController"
+           styleClass="root-pane">
+
+    <!-- Background gradient layer -->
+    <VBox styleClass="home-background" alignment="CENTER" spacing="0">
+
+        <!-- Title section -->
+        <VBox alignment="CENTER" spacing="8" VBox.vgrow="ALWAYS">
+            <padding><Insets top="120"/></padding>
+
+            <Label text="SONIQ" styleClass="app-title"/>
+            <Label text="Discover music through language" styleClass="app-subtitle"/>
+        </VBox>
+
+        <!-- Search section -->
+        <VBox alignment="CENTER" spacing="20" maxWidth="620">
+            <padding><Insets bottom="60"/></padding>
+
+            <!-- Search bar row -->
+            <HBox alignment="CENTER" spacing="12">
+                <TextField fx:id="searchField"
+                           promptText="songs like Clocks by Coldplay but more dreamy..."
+                           styleClass="search-field"
+                           HBox.hgrow="ALWAYS"
+                           prefHeight="52"
+                           maxWidth="500"
+                           onAction="#handleSearch"/>
+                <Button fx:id="searchButton"
+                        text="→"
+                        styleClass="search-button"
+                        prefHeight="52"
+                        prefWidth="52"
+                        onAction="#handleSearch"/>
+            </HBox>
+
+            <!-- Options row -->
+            <HBox alignment="CENTER" spacing="40">
+
+                <!-- Language toggle -->
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Match query language" styleClass="option-label"/>
+                    <ToggleButton fx:id="languageToggle"
+                                  styleClass="toggle-button"
+                                  selected="false"/>
+                </HBox>
+
+                <!-- Song count selector -->
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Results" styleClass="option-label"/>
+                    <ComboBox fx:id="songCountBox"
+                              styleClass="count-box"
+                              prefWidth="80"/>
+                </HBox>
+
+            </HBox>
+
+            <!-- Status label for errors -->
+            <Label fx:id="statusLabel"
+                   styleClass="status-label"
+                   text=""
+                   wrapText="true"
+                   maxWidth="500"/>
+
+        </VBox>
+    </VBox>
+</StackPane>

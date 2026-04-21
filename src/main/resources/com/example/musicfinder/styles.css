@@ -1,0 +1,243 @@
+/* ============================================
+   ROOT & BACKGROUND
+   ============================================ */
+
+.root-pane {
+    -fx-background-color: #0a1628;
+}
+
+.home-background {
+    -fx-background-color: linear-gradient(to bottom, #0a1628 0%, #0d2040 60%, #0a2a35 100%);
+    -fx-min-width: 1000;
+    -fx-min-height: 700;
+}
+
+/* ============================================
+   HOME SCREEN — TYPOGRAPHY
+   ============================================ */
+
+.app-title {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 72px;
+    -fx-font-weight: bold;
+    -fx-text-fill: linear-gradient(to right, #00d4aa, #4a9eff);
+    -fx-effect: dropshadow(gaussian, #00d4aa66, 20, 0.3, 0, 0);
+}
+
+.app-subtitle {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 15px;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-style: italic;
+}
+
+/* ============================================
+   SEARCH BAR
+   ============================================ */
+
+.search-field {
+    -fx-background-color: #112240;
+    -fx-background-radius: 26;
+    -fx-border-color: #1e4a6e;
+    -fx-border-radius: 26;
+    -fx-border-width: 1.5;
+    -fx-text-fill: #e0f0ff;
+    -fx-prompt-text-fill: #3a6a8a;
+    -fx-font-size: 14px;
+    -fx-font-family: "Georgia";
+    -fx-padding: 0 20 0 20;
+}
+
+.search-field:focused {
+    -fx-border-color: #00d4aa;
+    -fx-effect: dropshadow(gaussian, #00d4aa44, 12, 0.2, 0, 0);
+}
+
+.search-button {
+    -fx-background-color: #00d4aa;
+    -fx-background-radius: 26;
+    -fx-text-fill: #0a1628;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+}
+
+.search-button:hover {
+    -fx-background-color: #00f0c4;
+    -fx-effect: dropshadow(gaussian, #00d4aa66, 10, 0.3, 0, 0);
+}
+
+/* ============================================
+   OPTIONS ROW
+   ============================================ */
+
+.option-label {
+    -fx-text-fill: #5a8a9f;
+    -fx-font-size: 12px;
+    -fx-font-family: "Georgia";
+}
+
+.toggle-button {
+    -fx-background-color: #1e3a5f;
+    -fx-background-radius: 12;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-size: 11px;
+    -fx-cursor: hand;
+    -fx-min-width: 44;
+    -fx-min-height: 22;
+}
+
+.toggle-button:selected {
+    -fx-background-color: #00d4aa;
+    -fx-text-fill: #0a1628;
+}
+
+.count-box {
+    -fx-background-color: #112240;
+    -fx-border-color: #1e4a6e;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.count-box .list-cell {
+    -fx-text-fill: #e0f0ff;
+    -fx-background-color: #112240;
+    -fx-font-family: "Georgia";
+}
+
+.status-label {
+    -fx-text-fill: #ff6b6b;
+    -fx-font-size: 12px;
+    -fx-font-family: "Georgia";
+}
+
+/* ============================================
+   RESULTS SCREEN
+   ============================================ */
+
+.results-topbar {
+    -fx-background-color: #0d1f3c;
+    -fx-border-color: #1e3a5f;
+    -fx-border-width: 0 0 1 0;
+}
+
+.results-scroll {
+    -fx-background-color: transparent;
+    -fx-background: #0a1628;
+}
+
+.results-flow {
+    -fx-background-color: #0a1628;
+}
+
+.back-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #1e4a6e;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 13px;
+    -fx-cursor: hand;
+    -fx-padding: 6 14 6 14;
+}
+
+.back-button:hover {
+    -fx-border-color: #00d4aa;
+    -fx-text-fill: #00d4aa;
+}
+
+.query-display {
+    -fx-text-fill: #e0f0ff;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 14px;
+    -fx-font-style: italic;
+}
+
+.seed-display {
+    -fx-text-fill: #5a8a9f;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+}
+
+/* ============================================
+   SONG CARDS
+   ============================================ */
+
+.song-card {
+    -fx-background-color: #112240;
+    -fx-background-radius: 12;
+    -fx-border-color: #1e3a5f;
+    -fx-border-radius: 12;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, #00000066, 12, 0.1, 0, 4);
+}
+
+.song-card:hover {
+    -fx-border-color: #00d4aa44;
+    -fx-effect: dropshadow(gaussian, #00d4aa33, 16, 0.15, 0, 4);
+}
+
+.album-art {
+    -fx-background-color: linear-gradient(to bottom right, #0d2a45, #0a3a4a);
+    -fx-background-radius: 8;
+}
+
+.album-initial {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 72px;
+    -fx-text-fill: #1e4a6e;
+    -fx-font-weight: bold;
+}
+
+.card-title {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e0f0ff;
+}
+
+.card-artist {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 12px;
+    -fx-text-fill: #5a8a9f;
+}
+
+.genre-tag {
+    -fx-background-color: #0d2a45;
+    -fx-background-radius: 4;
+    -fx-text-fill: #00d4aa;
+    -fx-font-size: 10px;
+    -fx-font-family: "Georgia";
+    -fx-padding: 3 8 3 8;
+}
+
+.feature-label {
+    -fx-text-fill: #3a6a8a;
+    -fx-font-size: 10px;
+    -fx-font-family: "Georgia";
+}
+
+.feature-value {
+    -fx-text-fill: #5a8a9f;
+    -fx-font-size: 10px;
+    -fx-font-family: "Georgia";
+}
+
+.spotify-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #1e4a6e;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+    -fx-cursor: hand;
+    -fx-padding: 6 12 6 12;
+    -fx-max-width: infinity;
+}
+
+.spotify-button:hover {
+    -fx-border-color: #1DB954;
+    -fx-text-fill: #1DB954;
+}
