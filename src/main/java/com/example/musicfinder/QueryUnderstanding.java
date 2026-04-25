@@ -183,9 +183,12 @@ public class QueryUnderstanding {
 
             HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
+                    // where to send query
                     .uri(URI.create(API_URL))
                     .header("Content-Type", "application/json")
+                    // authentication
                     .header("Authorization", "Bearer " + apiKey)
+                    // POST = sending data
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
@@ -193,7 +196,9 @@ public class QueryUnderstanding {
                     request, HttpResponse.BodyHandlers.ofString()
             );
 
+            // Turns into structured JSON object
             JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+            // Choices represents multiple possible AI responses so I just grab first
             return json.getAsJsonArray("choices")
                     .get(0).getAsJsonObject()
                     .getAsJsonObject("message")
