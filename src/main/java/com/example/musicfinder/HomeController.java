@@ -202,7 +202,7 @@ public class HomeController implements Initializable {
             new Thread(() -> {
                 try {
                     // Step 1 — load songs
-                    List<Song> songList = DataReader.loadSongs("data/dataset.csv");
+                    List<Song> songList = DataReader.loadAllSongs();
 
                     javafx.application.Platform.runLater(() ->
                             statusLabel.setText("Step 2/2: Building graph (this takes ~1 min)...")
@@ -258,6 +258,7 @@ public class HomeController implements Initializable {
         }
 
         int songCount = songCountBox.getValue();
+        boolean matchLanguage = languageToggle.isSelected();
 
         statusLabel.setStyle("-fx-text-fill: #5a8a9f;");
         statusLabel.setText("Asking AI to interpret query...");
@@ -275,44 +276,8 @@ public class HomeController implements Initializable {
                 });
 
                 // Step 2 — find seed song
-                Song seed = null;
-                List<Song> titleMatches = new ArrayList<>();
-
-                for (Song s : dedupedList) {
-                    if (s.getTrackName().equalsIgnoreCase(result.getSeedSong())) {
-                        titleMatches.add(s);
-                    }
-                }
-
-                if (result.getSeedArtist() != null) {
-                    for (Song s : titleMatches) {
-                        if (s.getArtists().toLowerCase().contains(result.getSeedArtist().toLowerCase())) {
-                            seed = s;
-                            break;
-                        }
-                    }
-                } else {
-                    // fallback: prefer likely music tracks
-                    for (Song s : titleMatches) {
-                        String genre = s.getGenre().toLowerCase();
-                        if (!genre.contains("comedy") &&
-                                !genre.contains("podcast") &&
-                                !genre.contains("spoken")) {
-                            seed = s;
-                            break;
-                        }
-                    }
-                }
-
-                // If exact match fails, try name only without artist
-                if (seed == null && result.getSeedSong() != null) {
-                    for (Song s : dedupedList) {
-                        if (s.getTrackName().equalsIgnoreCase(result.getSeedSong())) {
-                            seed = s;
-                            break;
-                        }
-                    }
-                }
+                // NEW - This single line:
+                Song seed = findBestSeedMatch(result.getSeedSong(), result.getSeedArtist());
 
                 final Song finalSeed = seed;
                 final QueryResult finalResult = result;
@@ -335,9 +300,31 @@ public class HomeController implements Initializable {
                     List<Song> candidates = graph.bfsTraversal(
                             finalSeed.getTrackId(), 2, 500
                     );
+                    // Get more candidates than needed in case language filtering removes some
+                    int fetchCount = matchLanguage ? songCount * 3 : songCount;
                     List<Song> recommendations = SimilarityFinder.findSimilar(
-                            finalSeed, candidates, songCount, finalResult.getWeights()
+                            finalSeed, candidates, fetchCount, finalResult.getWeights()
                     );
+
+// Apply language filter if toggle is on
+                    if (matchLanguage) {
+                        String queryLanguage = QueryUnderstanding.detectLanguage(query);
+                        System.out.println("Query language detected: " + queryLanguage);
+
+                        List<Song> filtered = new ArrayList<>();
+                        for (Song s : recommendations) {
+                            if (s.inferredLanguage().equals(queryLanguage)) {
+                                filtered.add(s);
+                                if (filtered.size() >= songCount) break;
+                            }
+                        }
+
+                        // If filter was too aggressive and removed too many, fall back to unfiltered
+                        recommendations = filtered.size() >= (songCount / 2) ? filtered : recommendations;
+                        if (filtered.size() < songCount / 2) {
+                            System.out.println("Language filter too aggressive, showing unfiltered results");
+                        }
+                    }
 
                     // Step 4 — switch to results screen
                     try {
@@ -368,5 +355,66 @@ public class HomeController implements Initializable {
                 });
             }
         }).start();
+    }
+    /**
+     * Finds the best matching seed song using a scoring system
+     * rather than stopping at the first name match.
+     * Scores each candidate on name match quality and artist match quality,
+     * then returns the highest scoring song.
+     */
+    private Song findBestSeedMatch(String seedName, String seedArtist) {
+        if (seedName == null) return null;
+
+        Song bestMatch = null;
+        double bestScore = -1;
+
+        String seedNameLower   = seedName.toLowerCase().trim();
+        String seedArtistLower = seedArtist != null
+                ? seedArtist.toLowerCase().trim() : null;
+
+        for (Song s : dedupedList) {
+            String songNameLower   = s.getTrackName().toLowerCase().trim();
+            String songArtistLower = s.getArtists().toLowerCase().trim();
+
+            double score = 0;
+
+            // --- Name matching ---
+            if (songNameLower.equals(seedNameLower)) {
+                score += 10; // exact name match is the strongest signal
+            } else if (songNameLower.contains(seedNameLower)
+                    || seedNameLower.contains(songNameLower)) {
+                score += 5;  // partial name match
+            } else {
+                continue; // name doesn't match at all — skip entirely
+            }
+
+            // --- Artist matching ---
+            if (seedArtistLower != null) {
+                if (songArtistLower.equals(seedArtistLower)) {
+                    score += 10; // exact artist match
+                } else if (songArtistLower.contains(seedArtistLower)
+                        || seedArtistLower.contains(songArtistLower)) {
+                    score += 6;  // partial artist match e.g. "Eminem" in "Eminem;Dr Dre"
+                } else {
+                    // Artist name doesn't match at all
+                    // Still keep it as a fallback but score it very low
+                    score += 0;
+                }
+            }
+
+            // --- Popularity tiebreaker ---
+            // If two songs have the same name and artist score,
+            // prefer the more popular one (likely the original version)
+            score += s.getPopularity() * 0.01;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = s;
+            }
+        }
+
+        System.out.println("Best seed match score: " + bestScore
+                + " → " + (bestMatch != null ? bestMatch : "null"));
+        return bestMatch;
     }
 }

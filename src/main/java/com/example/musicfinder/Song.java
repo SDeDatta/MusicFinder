@@ -143,6 +143,30 @@ public class Song
                         tempo / 250.0  * 1.0
                 };
         }
+        /**
+         * Makes a best-guess at the song's language based on its genre tag.
+         * This is imperfect but practical given the dataset doesn't have
+         * an explicit language column.
+         */
+        public String inferredLanguage() {
+                String g = genre.toLowerCase();
+                if (g.contains("cantopop") || g.contains("mandopop") || g.contains("chinese"))
+                        return "zh";
+                if (g.contains("j-pop") || g.contains("j-rock") || g.contains("anime"))
+                        return "ja";
+                if (g.contains("k-pop") || g.contains("korean"))
+                        return "ko";
+                if (g.contains("latin") || g.contains("reggaeton") || g.contains("salsa"))
+                        return "es";
+                if (g.contains("mpb") || g.contains("sertanejo") || g.contains("pagode"))
+                        return "pt";
+                if (g.contains("french") || g.contains("chanson"))
+                        return "fr";
+                if (g.contains("german") || g.contains("schlager"))
+                        return "de";
+                // Default to English for everything else
+                return "en";
+        }
         public String toString() {
                 return String.format("\"%s\" by %s | Genre: %s | Popularity: %d | Energy: %.2f | Valence: %.2f",
                         trackName, artists, genre, popularity, energy, valence);

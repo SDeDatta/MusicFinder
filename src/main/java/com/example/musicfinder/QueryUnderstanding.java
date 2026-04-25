@@ -36,8 +36,10 @@ public class QueryUnderstanding {
         - loudness: perceived loudness (0.0=very quiet, 1.0=very loud)
         - tempo: speed (0.0=very slow, 1.0=very fast)
         - popularityBias: how mainstream (negative=obscure, 0=neutral, positive=popular)
-        - seedSong: the song name mentioned in the query, or null if none
-        - seedArtist: the artist name mentioned in the query, or null if none
+        - "- seedSong: the EXACT song title mentioned in the query, or null if none\\n" +
+        - "- seedArtist: the EXACT artist name mentioned in the query, or null if none. " +
+        - "  Always extract the artist if one is mentioned — never leave this null " +
+        - "  if the query contains 'by [artist name]'.\\n"
         
         For weights (energy through tempo): use values between 0.1 and 3.0.
         1.0 means normal importance. Higher means more important for this query.
@@ -156,6 +158,50 @@ public class QueryUnderstanding {
                 ? weights.get("seedArtist").getAsString() : null;
 
         return new QueryResult(wv, seedSong, seedArtist);
+    }
+    /**
+     * Detects the likely language of a query string.
+     * Uses the LLM to identify language rather than a separate library.
+     * Returns a language code like "en", "es", "pt", "fr" etc.
+     * Returns "en" as default if detection fails.
+     */
+    public static String detectLanguage(String query) {
+        try {
+            String apiKey = System.getenv("OPENAI_API_KEY");
+            if (apiKey == null || apiKey.isEmpty()) return "en";
+
+            String requestBody = """
+            {
+              "model": "gpt-3.5-turbo",
+              "messages": [
+                {"role": "system", "content": "Detect the language of the music query. Return ONLY a two-letter ISO language code like 'en', 'es', 'pt', 'fr', 'de', 'ja', 'ko'. Nothing else."},
+                {"role": "user", "content": %s}
+              ],
+              "temperature": 0.0
+            }
+            """.formatted(toJsonString(query));
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(API_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = client.send(
+                    request, HttpResponse.BodyHandlers.ofString()
+            );
+
+            JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+            return json.getAsJsonArray("choices")
+                    .get(0).getAsJsonObject()
+                    .getAsJsonObject("message")
+                    .get("content").getAsString().trim().toLowerCase();
+
+        } catch (Exception e) {
+            return "en";
+        }
     }
 
     /**

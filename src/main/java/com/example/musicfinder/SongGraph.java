@@ -62,7 +62,7 @@ public class SongGraph {
                     double genreScore = SimilarityFinder.genreSimilarity(songA, songB);
 
                     // Blend into final score using same weights as SimilarityFinder
-                    double finalScore = (0.7 * audioScore) + (0.3 * genreScore);
+                    double finalScore = (0.9 * audioScore) + (0.1 * genreScore);
 
                     // Only create an edge if similarity exceeds threshold
                     if (finalScore >= similarityThreshold) {
