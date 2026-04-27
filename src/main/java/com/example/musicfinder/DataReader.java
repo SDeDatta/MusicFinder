@@ -6,7 +6,9 @@ import com.opencsv.exceptions.CsvValidationException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DataReader {
 
@@ -172,14 +174,156 @@ public class DataReader {
         return songs;
     }
     /**
+     * Loads the third Spotify dataset (Spotify Song Attributes format).
+     * Key columns: track_id, track_name, track_artist, track_popularity,
+     * track_album_name, playlist_genre, energy, tempo, danceability,
+     * loudness, liveness, valence, speechiness, acousticness,
+     * instrumentalness, key, mode, duration_ms, time_signature
+     *
+     * NOTE: Verify these indices by opening dataset3.csv in a spreadsheet first.
+     * Column order in CSV may differ from the list you were given.
+     */
+    public static List<Song> loadSongsV3(String filePath) {
+        List<Song> songs = new ArrayList<>();
+
+        try (CSVReader reader = new CSVReader(new FileReader(filePath))) {
+
+            // Read header row and map column names to indices dynamically
+            // This is safer than hardcoding indices since column order varies
+            String[] headers = reader.readNext();
+            Map<String, Integer> colIndex = new HashMap<>();
+            for (int i = 0; i < headers.length; i++) {
+                colIndex.put(headers[i].trim().toLowerCase(), i);
+            }
+
+            // Verify required columns exist
+            String[] required = {
+                    "track_id", "track_name", "track_artist", "track_popularity",
+                    "energy", "valence", "danceability", "acousticness",
+                    "instrumentalness", "liveness", "speechiness",
+                    "loudness", "tempo", "playlist_genre", "duration_ms"
+            };
+            for (String col : required) {
+                if (!colIndex.containsKey(col)) {
+                    System.out.println("WARNING: Missing column in dataset3: " + col);
+                }
+            }
+
+            String[] row;
+            while ((row = reader.readNext()) != null) {
+                if (row.length < 10) continue;
+
+                try {
+                    // Use dynamic column lookup instead of hardcoded indices
+                    String trackId   = getCol(row, colIndex, "track_id", "");
+                    String trackName = getCol(row, colIndex, "track_name", "");
+                    String artist    = getCol(row, colIndex, "track_artist", "");
+                    String albumName = getCol(row, colIndex, "track_album_name", "Unknown Album");
+                    String genre     = getCol(row, colIndex, "playlist_genre", "unknown");
+
+                    // If track_id is empty, generate one like dataset2
+                    if (trackId.isEmpty()) {
+                        trackId = "v3_" + (artist + trackName)
+                                .toLowerCase()
+                                .replaceAll("\\s+", "_")
+                                .replaceAll("[^a-z0-9_]", "");
+                    }
+
+                    int popularity          = parseIntCol(row, colIndex, "track_popularity", 0);
+                    int durationMs          = parseIntCol(row, colIndex, "duration_ms", 0);
+                    int key                 = parseIntCol(row, colIndex, "key", 0);
+                    int mode                = parseIntCol(row, colIndex, "mode", 1);
+                    int timeSignature       = parseIntCol(row, colIndex, "time_signature", 4);
+                    double energy           = parseDoubleCol(row, colIndex, "energy", 0.5);
+                    double valence          = parseDoubleCol(row, colIndex, "valence", 0.5);
+                    double danceability     = parseDoubleCol(row, colIndex, "danceability", 0.5);
+                    double acousticness     = parseDoubleCol(row, colIndex, "acousticness", 0.5);
+                    double instrumentalness = parseDoubleCol(row, colIndex, "instrumentalness", 0.0);
+                    double liveness         = parseDoubleCol(row, colIndex, "liveness", 0.5);
+                    double speechiness      = parseDoubleCol(row, colIndex, "speechiness", 0.5);
+                    double loudness         = parseDoubleCol(row, colIndex, "loudness", -10.0);
+                    double tempo            = parseDoubleCol(row, colIndex, "tempo", 120.0);
+                    boolean explicit        = false; // not in this dataset
+
+                    Song song = new Song(
+                            trackId, trackName, artist, albumName, genre,
+                            popularity, energy, valence, danceability,
+                            acousticness, instrumentalness, liveness,
+                            speechiness, loudness, tempo,
+                            durationMs, explicit, key, timeSignature, mode
+                    );
+
+                    songs.add(song);
+
+                } catch (Exception e) {
+                    System.out.println("Skipping malformed row in dataset3: "
+                            + e.getMessage());
+                }
+            }
+
+        } catch (IOException e) {
+            System.out.println("Could not open file: " + filePath);
+            e.printStackTrace();
+        } catch (CsvValidationException e) {
+            System.out.println("CSV error in dataset3: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return songs;
+    }
+    /**
+     * Safely gets a string value from a row using a column name lookup.
+     * Returns defaultVal if column doesn't exist or value is empty.
+     */
+    private static String getCol(String[] row, Map<String, Integer> colIndex,
+                                 String colName, String defaultVal) {
+        Integer idx = colIndex.get(colName.toLowerCase());
+        if (idx == null || idx >= row.length) return defaultVal;
+        String val = row[idx].trim();
+        return val.isEmpty() ? defaultVal : val;
+    }
+
+    /**
+     * Safely parses an integer from a column by name.
+     */
+    private static int parseIntCol(String[] row, Map<String, Integer> colIndex,
+                                   String colName, int defaultVal) {
+        try {
+            String val = getCol(row, colIndex, colName, String.valueOf(defaultVal));
+            return Integer.parseInt(val);
+        } catch (NumberFormatException e) {
+            return defaultVal;
+        }
+    }
+
+    /**
+     * Safely parses a double from a column by name.
+     */
+    private static double parseDoubleCol(String[] row, Map<String, Integer> colIndex,
+                                         String colName, double defaultVal) {
+        try {
+            String val = getCol(row, colIndex, colName, String.valueOf(defaultVal));
+            return Double.parseDouble(val);
+        } catch (NumberFormatException e) {
+            return defaultVal;
+        }
+    }
+    /**
      * Loads and combines both datasets into one list.
      * Call this instead of loadSongs() when you want both sources merged.
      */
     public static List<Song> loadAllSongs() {
         List<Song> all = new ArrayList<>();
-        // Load dataset2 first — it has more common/mainstream songs
+
+        // Dataset2 first — most common mainstream songs
         all.addAll(loadSongsV2("data/dataset2.csv"));
+
+        // Dataset3 second — good track_id coverage
+        all.addAll(loadSongsV3("data/dataset3.csv"));
+
+        // Original dataset last
         all.addAll(loadSongs("data/dataset.csv"));
+
         System.out.println("Combined total before dedup: " + all.size());
         return all;
     }
