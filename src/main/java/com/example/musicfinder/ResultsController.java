@@ -28,11 +28,11 @@ public class ResultsController {
         queryLabel.setText("\"" + query + "\"");
         seedLabel.setText("Based on: " + seed.getTrackName()
                 + " by " + seed.getArtists());
-
         resultsPane.getChildren().clear();
 
         for (Song song : songs) {
-            resultsPane.getChildren().add(buildSongCard(song));
+            // Use flippable card wrapper instead of buildSongCard directly
+            resultsPane.getChildren().add(buildFlippableCard(song));
         }
     }
 
@@ -49,15 +49,36 @@ public class ResultsController {
         card.setAlignment(Pos.TOP_LEFT);
 
         // Album art placeholder — teal rectangle with song initial
+        // Get genre color for this card
+        String accentColor = getGenreColor(song.getGenre());
+
+// Album art placeholder with genre-colored gradient
         StackPane albumArt = new StackPane();
         albumArt.setPrefSize(248, 248);
-        albumArt.getStyleClass().add("album-art");
-
-        Label initial = new Label(
-                song.getTrackName().substring(0, 1).toUpperCase()
+        albumArt.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #0d2a45, "
+                        + accentColor + "44);" +
+                        "-fx-background-radius: 8;"
         );
-        initial.getStyleClass().add("album-initial");
+
+        Label initial = new Label(song.getTrackName().substring(0, 1).toUpperCase());
+        initial.setStyle(
+                "-fx-font-family: 'Georgia';" +
+                        "-fx-font-size: 72px;" +
+                        "-fx-text-fill: " + accentColor + "66;" +
+                        "-fx-font-weight: bold;"
+        );
         albumArt.getChildren().add(initial);
+
+// Add colored left border accent to card
+        card.setStyle(
+                "-fx-background-color: #112240;" +
+                        "-fx-background-radius: 12;" +
+                        "-fx-border-color: " + accentColor + "66;" +
+                        "-fx-border-radius: 12;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-effect: dropshadow(gaussian, #00000066, 12, 0.1, 0, 4);"
+        );
 
         // Song title
         Label title = new Label(song.getTrackName());
@@ -76,14 +97,9 @@ public class ResultsController {
         genre.getStyleClass().add("genre-tag");
 
         // Energy bar
-        VBox energyRow = buildFeatureBar(
-                "ENERGY", song.getEnergy(), "#00d4aa"
-        );
-
-        // Valence bar
-        VBox valenceRow = buildFeatureBar(
-                "VIBE", song.getValence(), "#4a9eff"
-        );
+        // Change the energy and valence bar calls to pass the genre color
+        VBox energyRow  = buildFeatureBar("ENERGY", song.getEnergy(),  accentColor);
+        VBox valenceRow = buildFeatureBar("VIBE",   song.getValence(), accentColor);
 
         // Spotify link button
         Button spotifyBtn = new Button("Open in Spotify ↗");
@@ -172,5 +188,186 @@ public class ResultsController {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    /**
+     * Returns a teal/accent color hex string based on genre.
+     * Used for the card's left border and album art gradient.
+     */
+    private String getGenreColor(String genre) {
+        String g = genre.toLowerCase();
+        if (g.contains("pop"))          return "#ff6eb4"; // pink
+        if (g.contains("rock"))         return "#ff8c42"; // orange
+        if (g.contains("hip-hop")
+                || g.contains("rap"))          return "#9b59b6"; // purple
+        if (g.contains("ambient")
+                || g.contains("study")
+                || g.contains("sleep"))        return "#4a9eff"; // blue
+        if (g.contains("jazz"))         return "#f1c40f"; // gold
+        if (g.contains("classical"))    return "#e8d5b7"; // cream
+        if (g.contains("metal")
+                || g.contains("punk"))         return "#e74c3c"; // red
+        if (g.contains("r-n-b")
+                || g.contains("soul"))         return "#e67e22"; // warm orange
+        if (g.contains("country"))      return "#a0785a"; // brown
+        if (g.contains("electronic")
+                || g.contains("dance")
+                || g.contains("edm"))          return "#00d4aa"; // teal
+        if (g.contains("indie"))        return "#7ec8e3"; // light blue
+        if (g.contains("folk")
+                || g.contains("acoustic"))     return "#95e17d"; // green
+        return "#00d4aa"; // default teal
+    }
+    /**
+     * Builds the back face of the card showing detailed audio features.
+     * Shown when the user hovers over a card.
+     */
+    private VBox buildCardBack(Song song, String accentColor) {
+        VBox back = new VBox(10);
+        back.setPrefWidth(280);
+        back.setPrefHeight(470); // match front card height
+        back.setPadding(new Insets(20));
+        back.setAlignment(Pos.CENTER_LEFT);
+        back.setStyle(
+                "-fx-background-color: #0d2a45;" +
+                        "-fx-background-radius: 12;" +
+                        "-fx-border-color: " + accentColor + ";" +
+                        "-fx-border-radius: 12;" +
+                        "-fx-border-width: 1.5;"
+        );
+
+        // Header
+        Label header = new Label("AUDIO FEATURES");
+        header.setStyle(
+                "-fx-font-family: 'Georgia';" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-text-fill: " + accentColor + ";" +
+                        "-fx-font-weight: bold;"
+        );
+
+        Label songTitle = new Label(song.getTrackName());
+        songTitle.setStyle(
+                "-fx-font-family: 'Georgia';" +
+                        "-fx-font-size: 13px;" +
+                        "-fx-text-fill: #e0f0ff;" +
+                        "-fx-font-weight: bold;"
+        );
+        songTitle.setWrapText(true);
+        songTitle.setMaxWidth(240);
+
+        javafx.scene.control.Separator sep =
+                new javafx.scene.control.Separator();
+        sep.setStyle("-fx-background-color: " + accentColor + "44;");
+
+        // All feature bars on the back
+        VBox features = new VBox(8);
+        features.getChildren().addAll(
+                buildFeatureBar("ENERGY",          song.getEnergy(),           accentColor),
+                buildFeatureBar("VIBE",            song.getValence(),          accentColor),
+                buildFeatureBar("DANCEABILITY",    song.getDanceability(),     accentColor),
+                buildFeatureBar("ACOUSTICNESS",    song.getAcousticness(),     accentColor),
+                buildFeatureBar("INSTRUMENTALNESS",song.getInstrumentalness(), accentColor),
+                buildFeatureBar("LIVENESS",        song.getLiveness(),         accentColor),
+                buildFeatureBar("SPEECHINESS",     song.getSpeechiness(),      accentColor)
+        );
+
+        // Popularity and tempo as text
+        Label popLabel = new Label(String.format(
+                "POPULARITY  %d / 100", song.getPopularity()
+        ));
+        popLabel.setStyle(
+                "-fx-font-family: 'Georgia'; -fx-font-size: 10px; -fx-text-fill: #5a8a9f;"
+        );
+
+        Label tempoLabel = new Label(String.format(
+                "TEMPO  %.0f BPM", song.getTempo()
+        ));
+        tempoLabel.setStyle(
+                "-fx-font-family: 'Georgia'; -fx-font-size: 10px; -fx-text-fill: #5a8a9f;"
+        );
+
+        back.getChildren().addAll(
+                header, songTitle, sep, features, popLabel, tempoLabel
+        );
+        return back;
+    }
+
+    /**
+     * Wraps front and back card faces in a StackPane with a flip animation.
+     * On mouse enter → flip to back. On mouse exit → flip to front.
+     */
+    private StackPane buildFlippableCard(Song song) {
+        String accentColor = getGenreColor(song.getGenre());
+
+        VBox front = buildSongCard(song);
+        VBox back  = buildCardBack(song, accentColor);
+
+        // Back starts invisible and rotated
+        back.setRotationAxis(javafx.geometry.Point3D.ZERO
+                .add(0, 1, 0)); // Y axis rotation
+        back.setRotate(180);
+        back.setVisible(false);
+
+        StackPane container = new StackPane(front, back);
+        container.setPrefWidth(280);
+
+        // Flip animation — two halves: front rotates to 90 (disappears)
+        // then back rotates from 90 to 0 (appears)
+        container.setOnMouseEntered(e -> {
+            // First half — rotate front to 90 degrees
+            javafx.animation.RotateTransition hidefront =
+                    new javafx.animation.RotateTransition(
+                            javafx.util.Duration.millis(200), front
+                    );
+            hidefront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+            hidefront.setFromAngle(0);
+            hidefront.setToAngle(90);
+
+            // Second half — rotate back from 90 to 0
+            javafx.animation.RotateTransition showBack =
+                    new javafx.animation.RotateTransition(
+                            javafx.util.Duration.millis(200), back
+                    );
+            showBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+            showBack.setFromAngle(90);
+            showBack.setToAngle(0);
+
+            // Chain them: when front finishes hiding, show back
+            hidefront.setOnFinished(evt -> {
+                front.setVisible(false);
+                back.setVisible(true);
+                showBack.play();
+            });
+
+            hidefront.play();
+        });
+
+        container.setOnMouseExited(e -> {
+            // Reverse — hide back, show front
+            javafx.animation.RotateTransition hideBack =
+                    new javafx.animation.RotateTransition(
+                            javafx.util.Duration.millis(200), back
+                    );
+            hideBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+            hideBack.setFromAngle(0);
+            hideBack.setToAngle(90);
+
+            javafx.animation.RotateTransition showFront =
+                    new javafx.animation.RotateTransition(
+                            javafx.util.Duration.millis(200), front
+                    );
+            showFront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+            showFront.setFromAngle(90);
+            showFront.setToAngle(0);
+
+            hideBack.setOnFinished(evt -> {
+                back.setVisible(false);
+                front.setVisible(true);
+                showFront.play();
+            });
+
+            hideBack.play();
+        });
+
+        return container;
     }
 }
