@@ -10,8 +10,8 @@ public class SimilarityFinder {
      */
     // How much genre influences the final score vs audio features
 // 0.7 audio + 0.3 genre = genre matters but audio features dominate
-    private static final double AUDIO_WEIGHT = 0.7;
-    private static final double GENRE_WEIGHT = 0.3;
+    private static final double AUDIO_WEIGHT = 0.5;
+    private static final double GENRE_WEIGHT = 0.5;
 
     public static List<Song> findSimilar(Song seed, List<Song> allSongs, int topN) {
         // Organizes songs based on their similarity score (see line 40 with topSongs input)
@@ -137,8 +137,8 @@ public class SimilarityFinder {
             }
 
             // Final blended score
-            double finalScore = (0.7 * audioScore)
-                    + (0.3 * genreScore)
+            double finalScore = (AUDIO_WEIGHT * audioScore)
+                    + (GENRE_WEIGHT * genreScore)
                     + popularityScore;
 
             topSongs.offer(new double[]{finalScore, i});

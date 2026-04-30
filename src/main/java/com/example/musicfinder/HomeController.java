@@ -415,6 +415,8 @@ public class HomeController implements Initializable {
 
         System.out.println("Best seed match score: " + bestScore
                 + " → " + (bestMatch != null ? bestMatch : "null"));
+        if (seedArtistLower != null && bestScore < 16) return null;
+        if (seedArtistLower == null && bestScore < 10) return null;
         return bestMatch;
     }
 }

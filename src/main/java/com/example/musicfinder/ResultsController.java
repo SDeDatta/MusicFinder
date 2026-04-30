@@ -9,6 +9,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.concurrent.Task;
 
 import java.awt.Desktop;
 import java.net.URI;
@@ -52,15 +55,17 @@ public class ResultsController {
         // Get genre color for this card
         String accentColor = getGenreColor(song.getGenre());
 
-// Album art placeholder with genre-colored gradient
+// Album art — tries to load real Spotify image, falls back to initial
         StackPane albumArt = new StackPane();
         albumArt.setPrefSize(248, 248);
         albumArt.setStyle(
                 "-fx-background-color: linear-gradient(to bottom right, #0d2a45, "
                         + accentColor + "44);" +
-                        "-fx-background-radius: 8;"
+                        "-fx-background-radius: 8;" +
+                        "-fx-background-insets: 0;"
         );
 
+// Initial letter shown while image loads or as fallback
         Label initial = new Label(song.getTrackName().substring(0, 1).toUpperCase());
         initial.setStyle(
                 "-fx-font-family: 'Georgia';" +
@@ -70,6 +75,52 @@ public class ResultsController {
         );
         albumArt.getChildren().add(initial);
 
+// Only attempt real image for songs with genuine Spotify track IDs
+        if (!song.getTrackId().startsWith("v2_")
+                && !song.getTrackId().startsWith("v3_")) {
+
+            // Load image on background thread so cards appear instantly
+            // and images fill in as they load
+            javafx.concurrent.Task<Image> imageTask = new javafx.concurrent.Task<>() {
+                @Override
+                protected Image call() {
+                    return ImageLoader.fetchAlbumArt(song.getTrackId());
+                }
+            };
+
+            imageTask.setOnSucceeded(e -> {
+                Image img = imageTask.getValue();
+                if (img != null && !img.isError()) {
+                    // Image loaded successfully — replace initial with real art
+                    javafx.scene.image.ImageView imageView =
+                            new javafx.scene.image.ImageView(img);
+                    imageView.setFitWidth(248);
+                    imageView.setFitHeight(248);
+                    imageView.setPreserveRatio(false);
+
+                    // Clip to rounded corners to match card style
+                    javafx.scene.shape.Rectangle clip =
+                            new javafx.scene.shape.Rectangle(248, 248);
+                    clip.setArcWidth(8);
+                    clip.setArcHeight(8);
+                    imageView.setClip(clip);
+
+                    // Replace the initial letter with the real image
+                    albumArt.getChildren().clear();
+                    albumArt.getChildren().add(imageView);
+                }
+                // If image failed, initial letter stays visible — no action needed
+            });
+
+            imageTask.setOnFailed(e ->
+                    System.out.println("Image task failed for: " + song.getTrackName())
+            );
+
+            // Run on a background thread
+            Thread imageThread = new Thread(imageTask);
+            imageThread.setDaemon(true); // won't prevent app from closing
+            imageThread.start();
+        }
 // Add colored left border accent to card
         card.setStyle(
                 "-fx-background-color: #112240;" +
@@ -312,60 +363,63 @@ public class ResultsController {
 
         // Flip animation — two halves: front rotates to 90 (disappears)
         // then back rotates from 90 to 0 (appears)
-        container.setOnMouseEntered(e -> {
-            // First half — rotate front to 90 degrees
-            javafx.animation.RotateTransition hidefront =
-                    new javafx.animation.RotateTransition(
-                            javafx.util.Duration.millis(200), front
-                    );
-            hidefront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
-            hidefront.setFromAngle(0);
-            hidefront.setToAngle(90);
+        final boolean[] showingBack = {false};
 
-            // Second half — rotate back from 90 to 0
-            javafx.animation.RotateTransition showBack =
-                    new javafx.animation.RotateTransition(
-                            javafx.util.Duration.millis(200), back
-                    );
-            showBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
-            showBack.setFromAngle(90);
-            showBack.setToAngle(0);
+        container.setOnMouseClicked(e -> {
+            if (!showingBack[0]) {
+                // Flip front → back
+                javafx.animation.RotateTransition hideFront =
+                        new javafx.animation.RotateTransition(
+                                javafx.util.Duration.millis(200), front
+                        );
+                hideFront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+                hideFront.setFromAngle(0);
+                hideFront.setToAngle(90);
 
-            // Chain them: when front finishes hiding, show back
-            hidefront.setOnFinished(evt -> {
-                front.setVisible(false);
-                back.setVisible(true);
-                showBack.play();
-            });
+                javafx.animation.RotateTransition showBack =
+                        new javafx.animation.RotateTransition(
+                                javafx.util.Duration.millis(200), back
+                        );
+                showBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+                showBack.setFromAngle(90);
+                showBack.setToAngle(0);
 
-            hidefront.play();
-        });
+                hideFront.setOnFinished(evt -> {
+                    front.setVisible(false);
+                    back.setVisible(true);
+                    showBack.play();
+                });
 
-        container.setOnMouseExited(e -> {
-            // Reverse — hide back, show front
-            javafx.animation.RotateTransition hideBack =
-                    new javafx.animation.RotateTransition(
-                            javafx.util.Duration.millis(200), back
-                    );
-            hideBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
-            hideBack.setFromAngle(0);
-            hideBack.setToAngle(90);
+                hideFront.play();
+                showingBack[0] = true;
 
-            javafx.animation.RotateTransition showFront =
-                    new javafx.animation.RotateTransition(
-                            javafx.util.Duration.millis(200), front
-                    );
-            showFront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
-            showFront.setFromAngle(90);
-            showFront.setToAngle(0);
+            } else {
+                // Flip back → front
+                javafx.animation.RotateTransition hideBack =
+                        new javafx.animation.RotateTransition(
+                                javafx.util.Duration.millis(200), back
+                        );
+                hideBack.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+                hideBack.setFromAngle(0);
+                hideBack.setToAngle(90);
 
-            hideBack.setOnFinished(evt -> {
-                back.setVisible(false);
-                front.setVisible(true);
-                showFront.play();
-            });
+                javafx.animation.RotateTransition showFront =
+                        new javafx.animation.RotateTransition(
+                                javafx.util.Duration.millis(200), front
+                        );
+                showFront.setAxis(javafx.geometry.Point3D.ZERO.add(0, 1, 0));
+                showFront.setFromAngle(90);
+                showFront.setToAngle(0);
 
-            hideBack.play();
+                hideBack.setOnFinished(evt -> {
+                    back.setVisible(false);
+                    front.setVisible(true);
+                    showFront.play();
+                });
+
+                hideBack.play();
+                showingBack[0] = false;
+            }
         });
 
         return container;
