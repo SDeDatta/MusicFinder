@@ -140,11 +140,19 @@
             </HBox>
         </HBox>
 
-        <Label fx:id="statusLabel"
-               styleClass="status-label"
-               text=""
-               wrapText="true"
-               maxWidth="560"/>
+        <VBox fx:id="statusBox"
+              styleClass="status-box"
+              alignment="CENTER"
+              maxWidth="560"
+              visible="false"
+              managed="false">
+
+            <Label fx:id="statusLabel"
+                   styleClass="status-label"
+                   text=""
+                   wrapText="true"
+                   maxWidth="520"/>
+        </VBox>
     </VBox>
 
 </VBox>

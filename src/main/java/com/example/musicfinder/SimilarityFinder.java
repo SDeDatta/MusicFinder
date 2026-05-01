@@ -63,7 +63,7 @@ public class SimilarityFinder {
         if (genreA.equals(genreB)) return 1.0;
 
         // Partial match — one genre contains the other (e.g. "pop" in "indie-pop")
-        if (genreA.contains(genreB) || genreB.contains(genreA)) return 0.5;
+        if (genreA.contains(genreB) || genreB.contains(genreA)) return 0.75;
 
         // No match
         return 0.0;

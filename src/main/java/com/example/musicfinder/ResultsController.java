@@ -165,6 +165,7 @@ public class ResultsController {
         return card;
     }
 
+
     /**
      * Builds a labeled progress bar showing a feature value.
      * Used for energy and valence on each card.

@@ -173,6 +173,8 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -187,6 +189,7 @@ public class HomeController implements Initializable {
     @FXML private ToggleButton languageToggle;
     @FXML private ComboBox<Integer> songCountBox;
     @FXML private Label statusLabel;
+    @FXML private VBox statusBox;
 
     private static List<Song> dedupedList;
     private static SongGraph graph;
@@ -198,14 +201,14 @@ public class HomeController implements Initializable {
         songCountBox.setValue(10);
 
         if (!dataLoaded) {
-            statusLabel.setText("Step 1/2: Loading songs...");
+            showStatus("Step 1/2: Loading songs...");
             new Thread(() -> {
                 try {
                     // Step 1 — load songs
                     List<Song> songList = DataReader.loadAllSongs();
 
                     javafx.application.Platform.runLater(() ->
-                            statusLabel.setText("Step 2/2: Building graph (this takes ~1 min)...")
+                           showStatus("Step 2/2: Building graph (this takes ~1 min)...")
                     );
 
                     // Step 2 — deduplicate
@@ -222,13 +225,13 @@ public class HomeController implements Initializable {
                     // Done
                     javafx.application.Platform.runLater(() -> {
                         dataLoaded = true;
-                        statusLabel.setText("Ready — " + dedupedList.size() + " songs loaded.");
+                        showStatus("Ready — " + dedupedList.size() + " songs loaded.");
                         statusLabel.setStyle("-fx-text-fill: #00d4aa;");
                     });
 
                 } catch (Exception e) {
                     javafx.application.Platform.runLater(() -> {
-                        statusLabel.setText("Error loading data: " + e.getMessage());
+                        showStatus("Error loading data: " + e.getMessage());
                         System.out.println("Data load error: " + e.getMessage());
                         e.printStackTrace();
                     });
@@ -242,18 +245,18 @@ public class HomeController implements Initializable {
         String query = searchField.getText().trim();
 
         if (query.isEmpty()) {
-            statusLabel.setText("Please enter a query.");
+            showStatus("Please enter a query.");
             return;
         }
 
         if (!dataLoaded) {
-            statusLabel.setText("Still loading data, please wait...");
+            showStatus("Still loading data, please wait...");
             return;
         }
 
         // Check dedupedList actually has songs
         if (dedupedList == null || dedupedList.isEmpty()) {
-            statusLabel.setText("Data not loaded correctly. Check data/dataset.csv path.");
+            showStatus("Data not loaded correctly. Check data/dataset.csv path.");
             return;
         }
 
@@ -261,7 +264,7 @@ public class HomeController implements Initializable {
         boolean matchLanguage = languageToggle.isSelected();
 
         statusLabel.setStyle("-fx-text-fill: #5a8a9f;");
-        statusLabel.setText("Asking AI to interpret query...");
+        showStatus("Asking AI to interpret query...");
         searchField.setDisable(true);
 
         new Thread(() -> {
@@ -287,14 +290,14 @@ public class HomeController implements Initializable {
 
                     if (finalSeed == null) {
                         statusLabel.setStyle("-fx-text-fill: #ff6b6b;");
-                        statusLabel.setText("Song not found: \""
+                        showStatus("Song not found: \""
                                 + finalResult.getSeedSong()
                                 + "\". Try a different song name.");
                         return;
                     }
 
                     System.out.println("Found seed: " + finalSeed);
-                    statusLabel.setText("Found song, getting recommendations...");
+                    showStatus("Found song, getting recommendations...");
 
                     // Step 3 — get recommendations
                     List<Song> candidates = graph.bfsTraversal(
@@ -341,7 +344,7 @@ public class HomeController implements Initializable {
                         HelloApplication.primaryStage.setScene(scene);
 
                     } catch (Exception e) {
-                        statusLabel.setText("Error loading results screen.");
+                        showStatus("Error loading results screen.");
                         e.printStackTrace();
                     }
                 });
@@ -350,7 +353,7 @@ public class HomeController implements Initializable {
                 javafx.application.Platform.runLater(() -> {
                     searchField.setDisable(false);
                     statusLabel.setStyle("-fx-text-fill: #ff6b6b;");
-                    statusLabel.setText("Search failed: " + e.getMessage());
+                    showStatus("Search failed: " + e.getMessage());
                     e.printStackTrace();
                 });
             }
@@ -418,5 +421,16 @@ public class HomeController implements Initializable {
         if (seedArtistLower != null && bestScore < 16) return null;
         if (seedArtistLower == null && bestScore < 10) return null;
         return bestMatch;
+
+    }
+    private void showStatus(String message) {
+        statusLabel.setText(message);
+        statusBox.setVisible(true);
+        statusBox.setManaged(true);
+    }
+    private void clearStatus() {
+        statusLabel.setText("");
+        statusBox.setVisible(false);
+        statusBox.setManaged(false);
     }
 }

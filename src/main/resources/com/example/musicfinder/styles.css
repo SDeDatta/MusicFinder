@@ -211,7 +211,22 @@
     -fx-font-family: "Georgia";
     -fx-padding: 3 8 3 8;
 }
+.status-box {
+    -fx-background-color: rgba(255, 107, 107, 0.12);
+    -fx-border-color: #ff6b6b55;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-background-radius: 14;
+    -fx-padding: 12 18 12 18;
+    -fx-effect: dropshadow(gaussian, #00000044, 10, 0.15, 0, 3);
+}
 
+.status-label {
+    -fx-text-fill: #ffb3b3;
+    -fx-font-size: 13px;
+    -fx-font-family: "Georgia";
+    -fx-text-alignment: center;
+}
 .feature-label {
     -fx-text-fill: #3a6a8a;
     -fx-font-size: 10px;
