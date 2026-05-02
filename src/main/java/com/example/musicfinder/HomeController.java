@@ -299,18 +299,69 @@ public class HomeController implements Initializable {
                     System.out.println("Found seed: " + finalSeed);
                     showStatus("Found song, getting recommendations...");
 
-                    // Step 3 — get recommendations
+                    // Step 3 — get recommendation candidates
                     List<Song> candidates = graph.bfsTraversal(
-                            finalSeed.getTrackId(), 2, 500
+                            finalSeed.getTrackId(), 5, 2000
                     );
-                    // Get more candidates than needed in case language filtering removes some
-                    int fetchCount = matchLanguage ? songCount * 3 : songCount;
-                    List<Song> recommendations = SimilarityFinder.findSimilar(
-                            finalSeed, candidates, fetchCount, finalResult.getWeights()
-                    );
+                    // If user asked for same artist, filter candidates BEFORE ranking
+                    if (finalResult.isSameArtistOnly()) {
+                        String seedArtistLower = finalSeed.getArtists().toLowerCase();
+
+                        List<Song> sameArtistCandidates = new ArrayList<>();
+
+                        for (Song s : candidates) {
+                            String candidateArtist = s.getArtists().toLowerCase();
+
+                            if (candidateArtist.contains(seedArtistLower)
+                                    || seedArtistLower.contains(candidateArtist)) {
+                                sameArtistCandidates.add(s);
+                            }
+                        }
+
+                        System.out.println("Same-artist candidates: " + sameArtistCandidates.size());
+
+                        if (sameArtistCandidates.size() >= songCount) {
+                            candidates = sameArtistCandidates;
+                        } else if (!sameArtistCandidates.isEmpty()) {
+                            candidates = sameArtistCandidates;
+                        } else {
+                            System.out.println("No same-artist candidates found; using unfiltered candidates.");
+                        }
+                    }
+// If user asked for a different language, filter candidates BEFORE ranking
+                    if (finalResult.isDifferentLanguage()) {
+                        String seedLanguage = finalSeed.inferredLanguage();
+
+                        List<Song> languageFilteredCandidates = new ArrayList<>();
+
+                        for (Song s : candidates) {
+                            if (!s.inferredLanguage().equals(seedLanguage)) {
+                                languageFilteredCandidates.add(s);
+                            }
+                        }
+
+                        System.out.println("Seed language: " + seedLanguage);
+                        System.out.println("Different-language candidates: "
+                                + languageFilteredCandidates.size());
+
+                        // Only use filtered list if it has enough songs
+                        if (languageFilteredCandidates.size() >= songCount) {
+                            candidates = languageFilteredCandidates;
+                        } else {
+                            System.out.println("Not enough different-language candidates; using unfiltered candidates.");
+                        }
+                    }
+                            // Now rank the filtered candidate pool
+                            List<Song> recommendations = SimilarityFinder.findSimilar(
+                                    finalSeed, candidates, songCount, finalResult.getWeights()
+                            );
+
+// Apply different language filter if requested
+
+// Trim to requested count
 
 // Apply language filter if toggle is on
-                    if (matchLanguage) {
+                    if (matchLanguage && !finalResult.isDifferentLanguage()) {
                         String queryLanguage = QueryUnderstanding.detectLanguage(query);
                         System.out.println("Query language detected: " + queryLanguage);
 
@@ -327,6 +378,9 @@ public class HomeController implements Initializable {
                         if (filtered.size() < songCount / 2) {
                             System.out.println("Language filter too aggressive, showing unfiltered results");
                         }
+                    }
+                    if (recommendations.size() > songCount) {
+                        recommendations = recommendations.subList(0, songCount);
                     }
 
                     // Step 4 — switch to results screen

@@ -19,52 +19,51 @@ public class QueryUnderstanding {
      * the better the weights you get back.
      */
     private static final String SYSTEM_PROMPT = """
-        You are a music analysis assistant for a song recommendation engine.
-        
-        When given a natural language music query, you must return ONLY a JSON object
-        with weights and values for the following fields. No explanation, no markdown,
-        no extra text — pure JSON only.
-        
-        The fields and their meanings:
-        - energy: intensity and activity (0.0=very calm, 1.0=very intense)
-        - valence: musical positivity (0.0=sad/dark, 1.0=happy/euphoric)
-        - danceability: how suitable for dancing (0.0=not danceable, 1.0=very danceable)
-        - acousticness: acoustic vs electronic (0.0=electronic, 1.0=fully acoustic)
-        - instrumentalness: vocals vs instrumental (0.0=has vocals, 1.0=fully instrumental)
-        - liveness: studio vs live feel (0.0=studio, 1.0=live performance)
-        - speechiness: spoken words (0.0=no speech, 1.0=all speech)
-        - loudness: perceived loudness (0.0=very quiet, 1.0=very loud)
-        - tempo: speed (0.0=very slow, 1.0=very fast)
-        - popularityBias: how mainstream (negative=obscure, 0=neutral, positive=popular)
-        - "- seedSong: the EXACT song title mentioned in the query, or null if none\\n" +
-        - "- seedArtist: the EXACT artist name mentioned in the query, or null if none. " +
-        - "  Always extract the artist if one is mentioned — never leave this null " +
-        - "  if the query contains 'by [artist name]'.\\n"
-        
-        For weights (energy through tempo): use values between 0.1 and 3.0.
-        1.0 means normal importance. Higher means more important for this query.
-        Lower means less important.
-        
-        For popularityBias: use -100 to +100. Negative means prefer obscure songs.
-        Positive means prefer popular songs. 0 means popularity doesn't matter.
-        
-        Example input: "songs like Clocks by Coldplay but less mainstream and more energetic"
-        Example output:
-        {
-          "energy": 2.0,
-          "valence": 1.0,
-          "danceability": 1.0,
-          "acousticness": 0.8,
-          "instrumentalness": 1.0,
-          "liveness": 1.0,
-          "speechiness": 1.0,
-          "loudness": 1.0,
-          "tempo": 1.5,
-          "popularityBias": -60,
-          "seedSong": "Clocks",
-          "seedArtist": "Coldplay"
-        }
-        """;
+    You are a music analysis assistant for a song recommendation engine.
+    
+    When given a natural language music query, return ONLY a JSON object.
+    No explanation, no markdown, no extra text — pure JSON only.
+    
+    Fields and meanings:
+    - energy: intensity (0.0=calm, 1.0=intense), weight 0.1-3.0
+    - valence: positivity (0.0=sad, 1.0=happy), weight 0.1-3.0
+    - danceability: (0.0=not danceable, 1.0=very), weight 0.1-3.0
+    - acousticness: (0.0=electronic, 1.0=acoustic), weight 0.1-3.0
+    - instrumentalness: (0.0=vocals, 1.0=instrumental), weight 0.1-3.0
+    - liveness: (0.0=studio, 1.0=live), weight 0.1-3.0
+    - speechiness: (0.0=no speech, 1.0=all speech), weight 0.1-3.0
+    - loudness: (0.0=quiet, 1.0=loud), weight 0.1-3.0
+    - tempo: (0.0=slow, 1.0=fast), weight 0.1-3.0
+    - popularityBias: -100 to +100, negative=obscure, positive=popular
+    - seedSong: exact song title from query, or null
+    - seedArtist: exact artist name from query, or null
+    - sameArtistOnly: true if the query asks for songs by the same artist
+      (e.g. "more songs by them", "other songs by this artist",
+      "more Coldplay songs"). false otherwise.
+    - differentLanguage: true if the query asks for songs in a
+      different language than the seed song
+      (e.g. "but in Spanish", "in a different language",
+      "not in English"). false otherwise.
+    
+    Example input: "more songs by Coldplay but less mainstream"
+    Example output:
+    {
+      "energy": 1.0,
+      "valence": 1.0,
+      "danceability": 1.0,
+      "acousticness": 1.0,
+      "instrumentalness": 1.0,
+      "liveness": 1.0,
+      "speechiness": 1.0,
+      "loudness": 1.0,
+      "tempo": 1.0,
+      "popularityBias": -60,
+      "seedSong": null,
+      "seedArtist": "Coldplay",
+      "sameArtistOnly": true,
+      "differentLanguage": false
+    }
+    """;
 
     /**
      * Main method — takes a raw user query and returns a fully populated
@@ -123,20 +122,15 @@ public class QueryUnderstanding {
      * the assistant's message content, then maps it to a QueryResult.
      */
     private static QueryResult parseResponse(String responseBody) {
-        // The OpenAI response wraps the actual content in a nested structure:
-        // response → choices[0] → message → content → our JSON
-        JsonObject response  = JsonParser.parseString(responseBody).getAsJsonObject();
-        JsonObject message   = response
+        JsonObject response = JsonParser.parseString(responseBody).getAsJsonObject();
+        JsonObject message  = response
                 .getAsJsonArray("choices")
                 .get(0).getAsJsonObject()
                 .getAsJsonObject("message");
 
         String content = message.get("content").getAsString().trim();
-
-        // Now parse the inner JSON that the LLM returned
         JsonObject weights = JsonParser.parseString(content).getAsJsonObject();
 
-        // Build WeightVector from the parsed JSON
         WeightVector wv = new WeightVector();
         wv.energy           = getDouble(weights, "energy",           1.0);
         wv.valence          = getDouble(weights, "valence",          1.0);
@@ -149,15 +143,21 @@ public class QueryUnderstanding {
         wv.tempo            = getDouble(weights, "tempo",            1.0);
         wv.popularityBias   = getDouble(weights, "popularityBias",   0.0);
 
-        // Extract seed song and artist
-        String seedSong   = weights.has("seedSong")   &&
+        String seedSong   = weights.has("seedSong") &&
                 !weights.get("seedSong").isJsonNull()
                 ? weights.get("seedSong").getAsString() : null;
         String seedArtist = weights.has("seedArtist") &&
                 !weights.get("seedArtist").isJsonNull()
                 ? weights.get("seedArtist").getAsString() : null;
 
-        return new QueryResult(wv, seedSong, seedArtist);
+        // Parse the two new boolean fields
+        boolean sameArtistOnly = weights.has("sameArtistOnly") &&
+                weights.get("sameArtistOnly").getAsBoolean();
+        boolean differentLanguage = weights.has("differentLanguage") &&
+                weights.get("differentLanguage").getAsBoolean();
+
+        return new QueryResult(wv, seedSong, seedArtist,
+                sameArtistOnly, differentLanguage);
     }
     /**
      * Detects the likely language of a query string.
@@ -226,7 +226,7 @@ public class QueryUnderstanding {
      * Returns neutral weights so the program still runs.
      */
     private static QueryResult defaultResult(String query) {
-        return new QueryResult(new WeightVector(), null, null);
+        return new QueryResult(new WeightVector(), null, null, false, false);
     }
 
     /**

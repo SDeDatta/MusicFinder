@@ -56,24 +56,8 @@ public class ResultsController {
         String accentColor = getGenreColor(song.getGenre());
 
 // Album art — tries to load real Spotify image, falls back to initial
-        StackPane albumArt = new StackPane();
-        albumArt.setPrefSize(248, 248);
-        albumArt.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, #0d2a45, "
-                        + accentColor + "44);" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-background-insets: 0;"
-        );
-
-// Initial letter shown while image loads or as fallback
-        Label initial = new Label(song.getTrackName().substring(0, 1).toUpperCase());
-        initial.setStyle(
-                "-fx-font-family: 'Georgia';" +
-                        "-fx-font-size: 72px;" +
-                        "-fx-text-fill: " + accentColor + "66;" +
-                        "-fx-font-weight: bold;"
-        );
-        albumArt.getChildren().add(initial);
+        // Generate audio fingerprint visual instead of plain initial
+        javafx.scene.layout.Pane artPane = buildAudioFingerprint(song, accentColor);
 
 // Only attempt real image for songs with genuine Spotify track IDs
         if (!song.getTrackId().startsWith("v2_")
@@ -104,10 +88,6 @@ public class ResultsController {
                     clip.setArcWidth(8);
                     clip.setArcHeight(8);
                     imageView.setClip(clip);
-
-                    // Replace the initial letter with the real image
-                    albumArt.getChildren().clear();
-                    albumArt.getChildren().add(imageView);
                 }
                 // If image failed, initial letter stays visible — no action needed
             });
@@ -158,7 +138,7 @@ public class ResultsController {
         spotifyBtn.setOnAction(e -> openSpotify(song.getTrackId()));
 
         card.getChildren().addAll(
-                albumArt, title, artist, genre,
+                artPane, title, artist, genre,
                 energyRow, valenceRow, spotifyBtn
         );
 
@@ -424,5 +404,101 @@ public class ResultsController {
         });
 
         return container;
+    }
+    /**
+     * Builds a unique visual fingerprint for a song using its audio features.
+     * Each song gets a different pattern because the shapes are driven by
+     * energy, valence, danceability, acousticness and tempo.
+     * High energy = more bars. High valence = warmer shapes. etc.
+     */
+    private javafx.scene.layout.Pane buildAudioFingerprint(Song song, String accentColor) {
+        javafx.scene.layout.Pane pane = new javafx.scene.layout.Pane();
+        pane.setPrefSize(248, 180);
+        pane.setStyle(
+                "-fx-background-color: linear-gradient(to bottom, #0a1628, #0d2040);" +
+                        "-fx-background-radius: 8;"
+        );
+
+        double w = 248, h = 180;
+        double energy       = song.getEnergy();
+        double valence      = song.getValence();
+        double danceability = song.getDanceability();
+        double acousticness = song.getAcousticness();
+        double tempo        = song.getTempo() / 200.0;
+
+        // --- Layer 1: Background circles (driven by acousticness) ---
+        // Acoustic songs get soft overlapping circles
+        int circleCount = (int)(acousticness * 5) + 2;
+        for (int i = 0; i < circleCount; i++) {
+            double progress = (double) i / circleCount;
+            javafx.scene.shape.Circle c = new javafx.scene.shape.Circle();
+            c.setCenterX(w * 0.5 + Math.sin(progress * Math.PI * 2) * w * 0.25);
+            c.setCenterY(h * 0.5 + Math.cos(progress * Math.PI * 2) * h * 0.25);
+            c.setRadius(20 + acousticness * 30 + i * 8);
+            c.setFill(javafx.scene.paint.Color.web(accentColor, 0.04 + acousticness * 0.04));
+            c.setStroke(javafx.scene.paint.Color.web(accentColor, 0.08 + acousticness * 0.06));
+            c.setStrokeWidth(1);
+            pane.getChildren().add(c);
+        }
+
+        // --- Layer 2: Waveform bars (driven by energy and tempo) ---
+        int barCount = (int)(tempo * 20) + 16;
+        double barW  = (w - 32) / barCount;
+        for (int i = 0; i < barCount; i++) {
+            double phase    = (double) i / barCount;
+            double wave1    = Math.sin(phase * Math.PI * 4) * 0.4;
+            double wave2    = Math.sin(phase * Math.PI * 7 + 1.2) * 0.3;
+            double wave3    = Math.sin(phase * Math.PI * 2 + 0.5) * 0.3;
+            double combined = (wave1 + wave2 + wave3 + 1.0) / 2.0;
+            double barH     = 8 + combined * energy * (h * 0.55);
+
+            javafx.scene.shape.Rectangle bar = new javafx.scene.shape.Rectangle();
+            bar.setX(16 + i * barW);
+            bar.setY(h / 2.0 - barH / 2.0);
+            bar.setWidth(Math.max(1, barW - 1.5));
+            bar.setHeight(barH);
+            bar.setArcWidth(2);
+            bar.setArcHeight(2);
+
+            // Alternate opacity for visual depth
+            double opacity = (i % 2 == 0) ? 0.7 + energy * 0.3 : 0.3 + energy * 0.2;
+            bar.setFill(javafx.scene.paint.Color.web(accentColor, opacity));
+            pane.getChildren().add(bar);
+        }
+
+        // --- Layer 3: Valence dots (driven by valence and danceability) ---
+        // Happy/danceable songs get more bright dots scattered around
+        int dotCount = (int)(valence * 12) + (int)(danceability * 8);
+        for (int i = 0; i < dotCount; i++) {
+            double angle  = (2 * Math.PI / dotCount) * i + valence;
+            double radius = 20 + danceability * 60 + Math.sin(angle * 3) * 20;
+            double cx     = w / 2 + Math.cos(angle) * radius;
+            double cy     = h / 2 + Math.sin(angle) * radius * 0.6;
+
+            javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(
+                    cx, cy, 1.5 + valence * 2
+            );
+            dot.setFill(javafx.scene.paint.Color.web(accentColor,
+                    0.3 + valence * 0.5));
+            pane.getChildren().add(dot);
+        }
+
+        // --- Layer 4: Song title overlaid at bottom ---
+        Label nameLabel = new Label(song.getTrackName().toUpperCase());
+        nameLabel.setStyle(
+                "-fx-font-family: 'Georgia';" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-text-fill: " + accentColor + ";" +
+                        "-fx-background-color: #0a162888;" +
+                        "-fx-padding: 4 8 4 8;" +
+                        "-fx-background-radius: 4;"
+        );
+        nameLabel.setLayoutX(12);
+        nameLabel.setLayoutY(h - 30);
+        nameLabel.setMaxWidth(224);
+        pane.getChildren().add(nameLabel);
+
+        return pane;
     }
 }

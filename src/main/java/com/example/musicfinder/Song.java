@@ -149,23 +149,74 @@ public class Song
          * an explicit language column.
          */
         public String inferredLanguage() {
-                String g = genre.toLowerCase();
-                if (g.contains("cantopop") || g.contains("mandopop") || g.contains("chinese"))
-                        return "zh";
-                if (g.contains("j-pop") || g.contains("j-rock") || g.contains("anime"))
-                        return "ja";
-                if (g.contains("k-pop") || g.contains("korean"))
-                        return "ko";
-                if (g.contains("latin") || g.contains("reggaeton") || g.contains("salsa"))
+                String text = (
+                        safe(trackName) + " " +
+                                safe(artists) + " " +
+                                safe(genre)
+                ).toLowerCase();
+
+                // Spanish / Latin signals
+                if (containsAny(text,
+                        "reggaeton", "latin", "latino", "latina", "corridos",
+                        "banda", "música mexicana", "mexican", "urbano latino",
+                        "bad bunny", "karol g", "peso pluma", "rauw alejandro",
+                        "j balvin", "ozuna", "anuel", "shakira", "rosalía",
+                        "quevedo", "feid", "fuerza regida", "grupo frontera",
+                        "ella", "amor", "corazón", "bebe", "bailando", "despacito",
+                        "mañana", "noche", "vida", "mía", "dónde", "qué")) {
                         return "es";
-                if (g.contains("mpb") || g.contains("sertanejo") || g.contains("pagode"))
-                        return "pt";
-                if (g.contains("french") || g.contains("chanson"))
+                }
+
+                // Korean signals
+                if (containsAny(text,
+                        "k-pop", "kpop", "korean", "bts", "blackpink", "newjeans",
+                        "stray kids", "twice", "seventeen", "exo", "ive", "aespa")) {
+                        return "ko";
+                }
+
+                // Japanese signals
+                if (containsAny(text,
+                        "j-pop", "jpop", "japanese", "anime", "yoasobi", "ado",
+                        "kenshi yonezu", "eve", "hatsune miku")) {
+                        return "ja";
+                }
+
+                // French signals
+                if (containsAny(text,
+                        "french", "français", "stromae", "angèle", "aya nakamura",
+                        "pomme", "amour", "bonjour", "je ", "moi", "toi")) {
                         return "fr";
-                if (g.contains("german") || g.contains("schlager"))
-                        return "de";
-                // Default to English for everything else
+                }
+
+                // Portuguese / Brazilian signals
+                if (containsAny(text,
+                        "brazil", "brasileiro", "funk carioca", "sertanejo",
+                        "anitta", "luísa sonza", "mc ", "joão", "amor", "vida")) {
+                        return "pt";
+                }
+
+                // Hindi / Bollywood signals
+                if (containsAny(text,
+                        "bollywood", "hindi", "punjabi", "arijit singh",
+                        "shreya ghoshal", "diljit", "badshah", "rahat fateh ali khan")) {
+                        return "hi";
+                }
+
+                // If nothing matches, assume English
                 return "en";
+        }
+
+        private boolean containsAny(String text, String... terms) {
+                for (String term : terms) {
+                        if (text.contains(term.toLowerCase())) {
+                                return true;
+                        }
+                }
+                return false;
+        }
+
+        private String safe(String s) {
+                return s == null ? "" : s;
         }
         public String toString() {
                 return String.format("\"%s\" by %s | Genre: %s | Popularity: %d | Energy: %.2f | Valence: %.2f",
