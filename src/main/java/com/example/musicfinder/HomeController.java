@@ -1,170 +1,3 @@
-/*
-package com.example.musicfinder;
-
-import javafx.collections.FXCollections;
-import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.fxml.Initializable;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
-
-public class HomeController implements Initializable {
-
-    @FXML private TextField searchField;
-    @FXML private ToggleButton languageToggle;
-    @FXML private ComboBox<Integer> songCountBox;
-    @FXML private Label statusLabel;
-
-    // These are loaded once and reused across searches
-    private static List<Song> dedupedList;
-    private static SongGraph graph;
-    private static boolean dataLoaded = false;
-
-    @Override
-    public void initialize(URL url, ResourceBundle rb) {
-        // Populate the song count dropdown with options 5 to 25
-        songCountBox.setItems(FXCollections.observableArrayList(
-                5, 10, 15, 20, 25
-        ));
-        songCountBox.setValue(10); // default to 10
-
-        // Load data in background so UI doesn't freeze
-        if (!dataLoaded) {
-            statusLabel.setText("Loading music data...");
-            new Thread(() -> {
-                loadData();
-                javafx.application.Platform.runLater(() -> {
-                    statusLabel.setText("");
-                    dataLoaded = true;
-                });
-            }).start();
-        }
-    }
-
-    */
-/**
-     * Loads the dataset and builds the graph.
-     * Runs on a background thread so the UI stays responsive.
-     *//*
-
-    private void loadData() {
-        List<Song> songList = DataReader.loadSongs("data/dataset.csv");
-
-        Map<String, Song> songMap = new HashMap<>();
-        for (Song song : songList) {
-            songMap.put(song.getTrackId(), song);
-        }
-
-        dedupedList = new ArrayList<>(songMap.values());
-        graph = new SongGraph(songMap);
-        graph.buildGraph(dedupedList, 0.90);
-    }
-
-    */
-/**
-     * Triggered when user hits Enter in search field or clicks the arrow button.
-     * Sends query to LLM, finds seed song, gets recommendations, switches screen.
-     *//*
-
-    @FXML
-    private void handleSearch() {
-        String query = searchField.getText().trim();
-
-        if (query.isEmpty()) {
-            statusLabel.setText("Please enter a query.");
-            return;
-        }
-
-        if (!dataLoaded) {
-            statusLabel.setText("Still loading data, please wait...");
-            return;
-        }
-
-        int songCount = songCountBox.getValue();
-        boolean matchLanguage = languageToggle.isSelected();
-
-        statusLabel.setText("Searching...");
-        searchField.setDisable(true);
-
-        // Run search on background thread to keep UI responsive
-        new Thread(() -> {
-            try {
-                // Send query to LLM
-                QueryResult result = QueryUnderstanding.interpretQuery(query);
-
-                // Find seed song
-                Song seed = null;
-                if (result.getSeedSong() != null) {
-                    for (Song s : dedupedList) {
-                        boolean nameMatch = s.getTrackName()
-                                .equalsIgnoreCase(result.getSeedSong());
-                        boolean artistMatch = result.getSeedArtist() == null ||
-                                s.getArtists().toLowerCase()
-                                        .contains(result.getSeedArtist().toLowerCase());
-                        if (nameMatch && artistMatch) {
-                            seed = s;
-                            break;
-                        }
-                    }
-                }
-
-                final Song finalSeed = seed;
-                final QueryResult finalResult = result;
-
-                javafx.application.Platform.runLater(() -> {
-                    searchField.setDisable(false);
-
-                    if (finalSeed == null) {
-                        statusLabel.setText("Song not found: \""
-                                + result.getSeedSong() + "\". Try another query.");
-                        return;
-                    }
-
-                    // Get recommendations
-                    List<Song> candidates = graph.bfsTraversal(
-                            finalSeed.getTrackId(), 2, 500
-                    );
-                    List<Song> recommendations = SimilarityFinder.findSimilar(
-                            finalSeed, candidates, songCount, finalResult.getWeights()
-                    );
-
-                    // Switch to results screen
-                    try {
-                        FXMLLoader loader = new FXMLLoader(
-                                HelloApplication.class.getResource("ResultsScreen.fxml")
-                        );
-                        Scene scene = new Scene(loader.load(), 1000, 700);
-                        scene.getStylesheets().add(
-                                HelloApplication.class.getResource("styles.css").toExternalForm()
-                        );
-                        // Pass data to results controller
-                        ResultsController controller = loader.getController();
-                        controller.loadResults(recommendations, finalSeed, query);
-
-                        HelloApplication.primaryStage.setScene(scene);
-
-                    } catch (Exception e) {
-                        statusLabel.setText("Error loading results screen.");
-                        e.printStackTrace();
-                    }
-                });
-
-            } catch (Exception e) {
-                javafx.application.Platform.runLater(() -> {
-                    searchField.setDisable(false);
-                    statusLabel.setText("Search failed: " + e.getMessage());
-                });
-            }
-        }).start();
-    }
-}*/
 package com.example.musicfinder;
 
 import javafx.collections.FXCollections;
@@ -174,26 +7,39 @@ import javafx.fxml.Initializable;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
-
+import javafx.scene.shape.Circle;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.ResourceBundle;
+import java.util.*;
 
 public class HomeController implements Initializable {
 
-    @FXML private TextField searchField;
+    // Step 1 fields
+    @FXML private TextField seedField;
+    @FXML private Label seedErrorLabel;
+    @FXML private VBox step1Panel;
+
+    // Step 2 fields
+    @FXML private TextField modifierField;
     @FXML private ToggleButton languageToggle;
     @FXML private ComboBox<Integer> songCountBox;
     @FXML private Label statusLabel;
-    @FXML private VBox statusBox;
+    @FXML private VBox step2Panel;
+    @FXML private Label confirmedSeedLabel;
 
-    private static List<Song> dedupedList;
-    private static SongGraph graph;
-    private static boolean dataLoaded = false;
+    // Step indicators
+    @FXML private Circle step1Dot;
+    @FXML private Circle step2Dot;
+    @FXML private Label step1Label;
+    @FXML private Label step2Label;
+
+    // Stores the confirmed seed text between steps
+    private String confirmedSeedText = "";
+
+    // Data — static so it survives screen transitions
+    static List<Song> dedupedList;
+    static SongGraph graph;
+    static boolean dataLoaded = false;
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
@@ -201,189 +47,219 @@ public class HomeController implements Initializable {
         songCountBox.setValue(10);
 
         if (!dataLoaded) {
-            showStatus("Step 1/2: Loading songs...");
+            statusLabel.setText("Loading music data...");
             new Thread(() -> {
                 try {
-                    // Step 1 — load songs
                     List<Song> songList = DataReader.loadAllSongs();
-
-                    javafx.application.Platform.runLater(() ->
-                           showStatus("Step 2/2: Building graph (this takes ~1 min)...")
-                    );
-
-                    // Step 2 — deduplicate
+                    // Replace your existing HashMap building code with this:
                     Map<String, Song> songMap = new HashMap<>();
+                    Set<String> nameArtistSeen = new HashSet<>();
+
                     for (Song song : songList) {
-                        songMap.put(song.getTrackId(), song);
+                        // Create a normalized key from artist + song name
+                        String nameKey = (song.getTrackName() + "|" + song.getArtists())
+                                .toLowerCase()
+                                .replaceAll("\\s+", " ")
+                                .trim();
+
+                        // Only add if we haven't seen this artist+name combo before
+                        // Prefer real Spotify IDs over synthetic ones
+                        if (!nameArtistSeen.contains(nameKey)) {
+                            nameArtistSeen.add(nameKey);
+                            songMap.put(song.getTrackId(), song);
+                        } else if (!song.getTrackId().startsWith("v2_")
+                                && !song.getTrackId().startsWith("v3_")) {
+                            // If we already have this song but current version has a real
+                            // Spotify ID, replace the synthetic version with the real one
+                            songMap.put(song.getTrackId(), song);
+                        }
                     }
                     dedupedList = new ArrayList<>(songMap.values());
-
-                    // Step 3 — build graph
                     graph = new SongGraph(songMap);
                     graph.buildGraph(dedupedList, 0.90);
 
-                    // Done
                     javafx.application.Platform.runLater(() -> {
                         dataLoaded = true;
-                        showStatus("Ready — " + dedupedList.size() + " songs loaded.");
+                        statusLabel.setText("Ready — " + dedupedList.size()
+                                + " songs loaded.");
                         statusLabel.setStyle("-fx-text-fill: #00d4aa;");
                     });
-
                 } catch (Exception e) {
-                    javafx.application.Platform.runLater(() -> {
-                        showStatus("Error loading data: " + e.getMessage());
-                        System.out.println("Data load error: " + e.getMessage());
-                        e.printStackTrace();
-                    });
+                    javafx.application.Platform.runLater(() ->
+                            statusLabel.setText("Error loading data: "
+                                    + e.getMessage())
+                    );
                 }
             }).start();
+        } else {
+            // Data already loaded from a previous session on this run
+            statusLabel.setText("Ready — " + dedupedList.size()
+                    + " songs loaded.");
+            statusLabel.setStyle("-fx-text-fill: #00d4aa;");
         }
     }
 
+    // -----------------------------------------------------------------------
+    // STEP 1 — Seed song handling
+    // -----------------------------------------------------------------------
+
+    /**
+     * Called when user hits Next on step 1.
+     * Validates the seed field isn't empty then transitions to step 2.
+     */
+    @FXML
+    private void handleSeedNext() {
+        String seedText = seedField.getText().trim();
+
+        if (seedText.isEmpty()) {
+            seedErrorLabel.setText(
+                    "⚠ A seed song is required. Enter a song name to continue."
+            );
+            seedField.requestFocus();
+            return;
+        }
+
+        // Clear any previous error
+        seedErrorLabel.setText("");
+        confirmedSeedText = seedText;
+
+        // Update the confirmed chip on step 2
+        confirmedSeedLabel.setText(seedText);
+
+        // Animate transition to step 2
+        transitionToStep2();
+    }
+
+    /** Pre-fills seed field with Clocks example */
+    @FXML private void handleChipClocks() {
+        seedField.setText("Clocks by Coldplay");
+        seedField.requestFocus();
+    }
+
+    /** Pre-fills seed field with Eminem example */
+    @FXML private void handleChipEminem() {
+        seedField.setText("Lose Yourself by Eminem");
+        seedField.requestFocus();
+    }
+
+    /** Pre-fills seed field with Queen example */
+    @FXML private void handleChipQueen() {
+        seedField.setText("Bohemian Rhapsody by Queen");
+        seedField.requestFocus();
+    }
+
+    // -----------------------------------------------------------------------
+    // STEP 2 — Modifier and search handling
+    // -----------------------------------------------------------------------
+
+    /**
+     * Clears the confirmed seed and goes back to step 1.
+     */
+    @FXML
+    private void handleClearSeed() {
+        confirmedSeedText = "";
+        transitionToStep1();
+    }
+
+    /**
+     * Triggered when user hits Search on step 2.
+     * Combines seed + modifier into one query and runs the full pipeline.
+     */
     @FXML
     private void handleSearch() {
-        String query = searchField.getText().trim();
-
-        if (query.isEmpty()) {
-            showStatus("Please enter a query.");
-            return;
-        }
-
         if (!dataLoaded) {
-            showStatus("Still loading data, please wait...");
+            statusLabel.setText("Still loading data, please wait...");
             return;
         }
 
-        // Check dedupedList actually has songs
-        if (dedupedList == null || dedupedList.isEmpty()) {
-            showStatus("Data not loaded correctly. Check data/dataset.csv path.");
+        if (confirmedSeedText.isEmpty()) {
+            transitionToStep1();
             return;
         }
 
-        int songCount = songCountBox.getValue();
+        // Combine seed and modifier into one natural language query
+        String modifier = modifierField.getText().trim();
+        String fullQuery = modifier.isEmpty()
+                ? "songs like " + confirmedSeedText
+                : "songs like " + confirmedSeedText + " but " + modifier;
+
         boolean matchLanguage = languageToggle.isSelected();
+        int songCount = songCountBox.getValue();
 
         statusLabel.setStyle("-fx-text-fill: #5a8a9f;");
-        showStatus("Asking AI to interpret query...");
-        searchField.setDisable(true);
+        statusLabel.setText("Interpreting your query...");
 
         new Thread(() -> {
             try {
-                // Step 1 — send to LLM
-                QueryResult result = QueryUnderstanding.interpretQuery(query);
+                QueryResult result = QueryUnderstanding.interpretQuery(fullQuery);
 
                 javafx.application.Platform.runLater(() -> {
                     System.out.println("LLM returned: " + result);
-                    System.out.println("Seed song from LLM: " + result.getSeedSong());
-                    System.out.println("Seed artist from LLM: " + result.getSeedArtist());
                 });
 
-                // Step 2 — find seed song
-                // NEW - This single line:
-                Song seed = findBestSeedMatch(result.getSeedSong(), result.getSeedArtist());
+                // Find seed song
+                Song seed = findBestSeedMatch(
+                        result.getSeedSong(), result.getSeedArtist()
+                );
 
                 final Song finalSeed = seed;
                 final QueryResult finalResult = result;
 
                 javafx.application.Platform.runLater(() -> {
-                    searchField.setDisable(false);
-
                     if (finalSeed == null) {
-                        statusLabel.setStyle("-fx-text-fill: #ff6b6b;");
-                        showStatus("Song not found: \""
-                                + finalResult.getSeedSong()
-                                + "\". Try a different song name.");
+                        showSeedNotFoundError(
+                                result.getSeedSong(), result.getSeedArtist()
+                        );
                         return;
                     }
 
-                    System.out.println("Found seed: " + finalSeed);
-                    showStatus("Found song, getting recommendations...");
+                    statusLabel.setText("Getting recommendations...");
 
-                    // Step 3 — get recommendation candidates
+                    int fetchCount = songCount * 3;
                     List<Song> candidates = graph.bfsTraversal(
-                            finalSeed.getTrackId(), 5, 2000
+                            finalSeed.getTrackId(), 2, 500
                     );
-                    // If user asked for same artist, filter candidates BEFORE ranking
+                    List<Song> recommendations = SimilarityFinder.findSimilar(
+                            finalSeed, candidates, fetchCount, finalResult.getWeights()
+                    );
+
+                    // Same artist filter
                     if (finalResult.isSameArtistOnly()) {
-                        String seedArtistLower = finalSeed.getArtists().toLowerCase();
-
-                        List<Song> sameArtistCandidates = new ArrayList<>();
-
-                        for (Song s : candidates) {
-                            String candidateArtist = s.getArtists().toLowerCase();
-
-                            if (candidateArtist.contains(seedArtistLower)
-                                    || seedArtistLower.contains(candidateArtist)) {
-                                sameArtistCandidates.add(s);
-                            }
-                        }
-
-                        System.out.println("Same-artist candidates: " + sameArtistCandidates.size());
-
-                        if (sameArtistCandidates.size() >= songCount) {
-                            candidates = sameArtistCandidates;
-                        } else if (!sameArtistCandidates.isEmpty()) {
-                            candidates = sameArtistCandidates;
-                        } else {
-                            System.out.println("No same-artist candidates found; using unfiltered candidates.");
-                        }
-                    }
-// If user asked for a different language, filter candidates BEFORE ranking
-                    if (finalResult.isDifferentLanguage()) {
-                        String seedLanguage = finalSeed.inferredLanguage();
-
-                        List<Song> languageFilteredCandidates = new ArrayList<>();
-
-                        for (Song s : candidates) {
-                            if (!s.inferredLanguage().equals(seedLanguage)) {
-                                languageFilteredCandidates.add(s);
-                            }
-                        }
-
-                        System.out.println("Seed language: " + seedLanguage);
-                        System.out.println("Different-language candidates: "
-                                + languageFilteredCandidates.size());
-
-                        // Only use filtered list if it has enough songs
-                        if (languageFilteredCandidates.size() >= songCount) {
-                            candidates = languageFilteredCandidates;
-                        } else {
-                            System.out.println("Not enough different-language candidates; using unfiltered candidates.");
-                        }
-                    }
-                            // Now rank the filtered candidate pool
-                            List<Song> recommendations = SimilarityFinder.findSimilar(
-                                    finalSeed, candidates, songCount, finalResult.getWeights()
-                            );
-
-// Apply different language filter if requested
-
-// Trim to requested count
-
-// Apply language filter if toggle is on
-                    if (matchLanguage && !finalResult.isDifferentLanguage()) {
-                        String queryLanguage = QueryUnderstanding.detectLanguage(query);
-                        System.out.println("Query language detected: " + queryLanguage);
-
+                        String artistLower = finalSeed.getArtists().toLowerCase();
                         List<Song> filtered = new ArrayList<>();
                         for (Song s : recommendations) {
-                            if (s.inferredLanguage().equals(queryLanguage)) {
+                            if (s.getArtists().toLowerCase().contains(artistLower)
+                                    || artistLower.contains(
+                                    s.getArtists().toLowerCase())) {
                                 filtered.add(s);
                                 if (filtered.size() >= songCount) break;
                             }
                         }
-
-                        // If filter was too aggressive and removed too many, fall back to unfiltered
-                        recommendations = filtered.size() >= (songCount / 2) ? filtered : recommendations;
-                        if (filtered.size() < songCount / 2) {
-                            System.out.println("Language filter too aggressive, showing unfiltered results");
-                        }
+                        if (filtered.size() >= 2) recommendations = filtered;
                     }
+
+                    // Different language filter
+                    if (finalResult.isDifferentLanguage() || matchLanguage) {
+                        String seedLang = finalSeed.inferredLanguage();
+                        List<Song> filtered = new ArrayList<>();
+                        for (Song s : recommendations) {
+                            boolean langCondition = matchLanguage
+                                    ? s.inferredLanguage().equals(seedLang)
+                                    : !s.inferredLanguage().equals(seedLang);
+                            if (langCondition) {
+                                filtered.add(s);
+                                if (filtered.size() >= songCount) break;
+                            }
+                        }
+                        if (filtered.size() >= 2) recommendations = filtered;
+                    }
+
+                    // Trim to requested count
                     if (recommendations.size() > songCount) {
                         recommendations = recommendations.subList(0, songCount);
                     }
 
-                    // Step 4 — switch to results screen
+                    // Switch to results screen
                     try {
                         FXMLLoader loader = new FXMLLoader(
                                 HelloApplication.class.getResource("ResultsScreen.fxml")
@@ -394,37 +270,116 @@ public class HomeController implements Initializable {
                                         .toExternalForm()
                         );
                         ResultsController controller = loader.getController();
-                        controller.loadResults(recommendations, finalSeed, query);
+                        controller.loadResults(recommendations, finalSeed, fullQuery);
                         HelloApplication.primaryStage.setScene(scene);
-
                     } catch (Exception e) {
-                        showStatus("Error loading results screen.");
+                        statusLabel.setText("Error loading results.");
                         e.printStackTrace();
                     }
                 });
 
             } catch (Exception e) {
                 javafx.application.Platform.runLater(() -> {
-                    searchField.setDisable(false);
-                    statusLabel.setStyle("-fx-text-fill: #ff6b6b;");
-                    showStatus("Search failed: " + e.getMessage());
+                    statusLabel.setText("Search failed: " + e.getMessage());
                     e.printStackTrace();
                 });
             }
         }).start();
     }
-    /**
-     * Finds the best matching seed song using a scoring system
-     * rather than stopping at the first name match.
-     * Scores each candidate on name match quality and artist match quality,
-     * then returns the highest scoring song.
-     */
-    private Song findBestSeedMatch(String seedName, String seedArtist) {
-        if (seedName == null) return null;
 
+    // -----------------------------------------------------------------------
+    // STEP TRANSITION ANIMATIONS
+    // -----------------------------------------------------------------------
+
+    /**
+     * Animates from step 1 to step 2.
+     * Fades out step 1 panel, updates indicators, fades in step 2 panel.
+     */
+    private void transitionToStep2() {
+        javafx.animation.FadeTransition fadeOut =
+                new javafx.animation.FadeTransition(
+                        javafx.util.Duration.millis(200), step1Panel
+                );
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        fadeOut.setOnFinished(e -> {
+            step1Panel.setVisible(false);
+            step1Panel.setManaged(false);
+
+            step2Panel.setVisible(true);
+            step2Panel.setManaged(true);
+            step2Panel.setOpacity(0);
+
+            // Update step indicators
+            step1Dot.getStyleClass().remove("step-dot-active");
+            step1Dot.getStyleClass().add("step-dot-done");
+            step2Dot.getStyleClass().remove("step-dot-inactive");
+            step2Dot.getStyleClass().add("step-dot-active");
+            step1Label.getStyleClass().remove("step-label-active");
+            step1Label.getStyleClass().add("step-label-done");
+            step2Label.getStyleClass().remove("step-label-inactive");
+            step2Label.getStyleClass().add("step-label-active");
+
+            javafx.animation.FadeTransition fadeIn =
+                    new javafx.animation.FadeTransition(
+                            javafx.util.Duration.millis(250), step2Panel
+                    );
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.setOnFinished(ev -> modifierField.requestFocus());
+            fadeIn.play();
+        });
+        fadeOut.play();
+    }
+
+    /**
+     * Animates back from step 2 to step 1.
+     */
+    private void transitionToStep1() {
+        javafx.animation.FadeTransition fadeOut =
+                new javafx.animation.FadeTransition(
+                        javafx.util.Duration.millis(200), step2Panel
+                );
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        fadeOut.setOnFinished(e -> {
+            step2Panel.setVisible(false);
+            step2Panel.setManaged(false);
+
+            step1Panel.setVisible(true);
+            step1Panel.setManaged(true);
+            step1Panel.setOpacity(0);
+
+            // Reset step indicators
+            step1Dot.getStyleClass().remove("step-dot-done");
+            step1Dot.getStyleClass().add("step-dot-active");
+            step2Dot.getStyleClass().remove("step-dot-active");
+            step2Dot.getStyleClass().add("step-dot-inactive");
+            step1Label.getStyleClass().remove("step-label-done");
+            step1Label.getStyleClass().add("step-label-active");
+            step2Label.getStyleClass().remove("step-label-active");
+            step2Label.getStyleClass().add("step-label-inactive");
+
+            javafx.animation.FadeTransition fadeIn =
+                    new javafx.animation.FadeTransition(
+                            javafx.util.Duration.millis(250), step1Panel
+                    );
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            fadeIn.setOnFinished(ev -> seedField.requestFocus());
+            fadeIn.play();
+        });
+        fadeOut.play();
+    }
+
+    // -----------------------------------------------------------------------
+    // SEED FINDING (same as before)
+    // -----------------------------------------------------------------------
+
+    Song findBestSeedMatch(String seedName, String seedArtist) {
+        if (seedName == null) return null;
         Song bestMatch = null;
         double bestScore = -1;
-
         String seedNameLower   = seedName.toLowerCase().trim();
         String seedArtistLower = seedArtist != null
                 ? seedArtist.toLowerCase().trim() : null;
@@ -432,59 +387,81 @@ public class HomeController implements Initializable {
         for (Song s : dedupedList) {
             String songNameLower   = s.getTrackName().toLowerCase().trim();
             String songArtistLower = s.getArtists().toLowerCase().trim();
-
             double score = 0;
 
-            // --- Name matching ---
-            if (songNameLower.equals(seedNameLower)) {
-                score += 10; // exact name match is the strongest signal
-            } else if (songNameLower.contains(seedNameLower)
-                    || seedNameLower.contains(songNameLower)) {
-                score += 5;  // partial name match
-            } else {
-                continue; // name doesn't match at all — skip entirely
-            }
+            if (songNameLower.equals(seedNameLower))              score += 10;
+            else if (songNameLower.contains(seedNameLower)
+                    || seedNameLower.contains(songNameLower))       score += 5;
+            else continue;
 
-            // --- Artist matching ---
             if (seedArtistLower != null) {
-                if (songArtistLower.equals(seedArtistLower)) {
-                    score += 10; // exact artist match
-                } else if (songArtistLower.contains(seedArtistLower)
-                        || seedArtistLower.contains(songArtistLower)) {
-                    score += 6;  // partial artist match e.g. "Eminem" in "Eminem;Dr Dre"
-                } else {
-                    // Artist name doesn't match at all
-                    // Still keep it as a fallback but score it very low
-                    score += 0;
-                }
+                if (songArtistLower.equals(seedArtistLower))          score += 10;
+                else if (songArtistLower.contains(seedArtistLower)
+                        || seedArtistLower.contains(songArtistLower))   score += 6;
             }
-
-            // --- Popularity tiebreaker ---
-            // If two songs have the same name and artist score,
-            // prefer the more popular one (likely the original version)
             score += s.getPopularity() * 0.01;
 
-            if (score > bestScore) {
-                bestScore = score;
-                bestMatch = s;
-            }
+            if (score > bestScore) { bestScore = score; bestMatch = s; }
         }
 
-        System.out.println("Best seed match score: " + bestScore
-                + " → " + (bestMatch != null ? bestMatch : "null"));
+        System.out.println("Best seed score: " + bestScore
+                + " → " + (bestMatch != null ? bestMatch.getTrackName() : "null"));
+
         if (seedArtistLower != null && bestScore < 16) return null;
         if (seedArtistLower == null && bestScore < 10) return null;
         return bestMatch;
+    }
 
+    // -----------------------------------------------------------------------
+    // ERROR SCREEN (same as before — kept here for completeness)
+    // -----------------------------------------------------------------------
+
+    void showSeedNotFoundError(String songName, String artistName) {
+        javafx.scene.layout.VBox errorScreen = new javafx.scene.layout.VBox(24);
+        errorScreen.setAlignment(javafx.geometry.Pos.CENTER);
+        errorScreen.setStyle("-fx-background-color: #0a1628;");
+        errorScreen.setPadding(new javafx.geometry.Insets(60));
+
+        Label icon = new Label("🔍");
+        icon.setStyle("-fx-font-size: 64px;");
+
+        Label title = new Label("Song Not Found");
+        title.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 28px;" +
+                "-fx-font-weight: bold; -fx-text-fill: #e0f0ff;");
+
+        String searchedFor = "\"" + (songName != null ? songName : "unknown") + "\""
+                + (artistName != null ? " by " + artistName : "");
+        Label searched = new Label("We looked for " + searchedFor);
+        searched.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 14px;" +
+                "-fx-text-fill: #ff6b6b; -fx-font-style: italic;");
+
+        Button tryAgain = new Button("← Try Again");
+        tryAgain.setStyle("-fx-background-color: #00d4aa; -fx-background-radius: 26;" +
+                "-fx-text-fill: #0a1628; -fx-font-family: 'Georgia';" +
+                "-fx-font-size: 14px; -fx-font-weight: bold;" +
+                "-fx-cursor: hand; -fx-padding: 12 32 12 32;");
+        tryAgain.setOnAction(e -> goHomeWithQuery(""));
+
+        errorScreen.getChildren().addAll(icon, title, searched, tryAgain);
+        Scene scene = new Scene(errorScreen, 1000, 700);
+        scene.getStylesheets().add(
+                HelloApplication.class.getResource("styles.css").toExternalForm()
+        );
+        HelloApplication.primaryStage.setScene(scene);
     }
-    private void showStatus(String message) {
-        statusLabel.setText(message);
-        statusBox.setVisible(true);
-        statusBox.setManaged(true);
-    }
-    private void clearStatus() {
-        statusLabel.setText("");
-        statusBox.setVisible(false);
-        statusBox.setManaged(false);
+
+    private void goHomeWithQuery(String query) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    HelloApplication.class.getResource("HomeScreen.fxml")
+            );
+            Scene scene = new Scene(loader.load(), 1000, 700);
+            scene.getStylesheets().add(
+                    HelloApplication.class.getResource("styles.css").toExternalForm()
+            );
+            HelloApplication.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

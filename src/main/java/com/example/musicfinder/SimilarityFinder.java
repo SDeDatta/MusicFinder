@@ -47,7 +47,15 @@ public class SimilarityFinder {
             results.add(allSongs.get((int) entry[1]));
         }
         Collections.reverse(results);
-        return results;
+
+        List<Song> deduped = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        for (Song s : results) {
+            if (seenIds.add(s.getTrackId())) {
+                deduped.add(s);
+            }
+        }
+        return deduped;
     }
     /**
      * Returns a genre similarity score between two songs.
@@ -150,6 +158,17 @@ public class SimilarityFinder {
             results.add(allSongs.get((int) entry[1]));
         }
         Collections.reverse(results);
-        return results;
+
+// Deduplicate before returning
+        List<Song> deduped = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+
+        for (Song s : results) {
+            if (seenIds.add(s.getTrackId())) {
+                deduped.add(s);
+            }
+        }
+
+        return deduped;
     }
 }

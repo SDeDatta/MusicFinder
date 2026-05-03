@@ -256,3 +256,117 @@
     -fx-border-color: #1DB954;
     -fx-text-fill: #1DB954;
 }
+/* ============================================
+   TWO-STEP FLOW
+   ============================================ */
+
+.step-question {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e0f0ff;
+}
+
+.step-hint {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 13px;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-style: italic;
+}
+
+/* Step indicator dots */
+.step-dot-active {
+    -fx-fill: #00d4aa;
+    -fx-effect: dropshadow(gaussian, #00d4aa88, 8, 0.4, 0, 0);
+}
+
+.step-dot-inactive {
+    -fx-fill: #1e3a5f;
+    -fx-stroke: #2a4a6f;
+    -fx-stroke-width: 1.5;
+}
+
+.step-dot-done {
+    -fx-fill: #00a080;
+}
+
+.step-connector {
+    -fx-fill: #1e3a5f;
+}
+
+/* Step labels */
+.step-label-active {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+    -fx-text-fill: #00d4aa;
+    -fx-font-weight: bold;
+}
+
+.step-label-inactive {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+    -fx-text-fill: #3a5a7f;
+}
+
+.step-label-done {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+    -fx-text-fill: #00a080;
+}
+
+/* Confirmed seed chip on step 2 */
+.confirmed-label {
+    -fx-font-family: "Georgia";
+    -fx-font-size: 10px;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-weight: bold;
+}
+
+.confirmed-chip {
+    -fx-background-color: #0d2a45;
+    -fx-background-radius: 20;
+    -fx-border-color: #00d4aa;
+    -fx-border-radius: 20;
+    -fx-border-width: 1;
+    -fx-text-fill: #00d4aa;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 13px;
+    -fx-padding: 6 14 6 14;
+}
+
+.clear-chip-button {
+    -fx-background-color: transparent;
+    -fx-border-color: #1e3a5f;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-size: 11px;
+    -fx-cursor: hand;
+    -fx-padding: 4 8 4 8;
+    -fx-min-width: 24;
+    -fx-min-height: 24;
+}
+
+.clear-chip-button:hover {
+    -fx-border-color: #ff6b6b;
+    -fx-text-fill: #ff6b6b;
+}
+
+/* Example chips on step 1 */
+.example-chip {
+    -fx-background-color: #112240;
+    -fx-background-radius: 20;
+    -fx-border-color: #1e4a6e;
+    -fx-border-radius: 20;
+    -fx-border-width: 1;
+    -fx-text-fill: #5a8a9f;
+    -fx-font-family: "Georgia";
+    -fx-font-size: 11px;
+    -fx-cursor: hand;
+    -fx-padding: 6 12 6 12;
+}
+
+.example-chip:hover {
+    -fx-border-color: #00d4aa;
+    -fx-text-fill: #00d4aa;
+}

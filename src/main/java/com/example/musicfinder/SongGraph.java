@@ -104,6 +104,7 @@ public class SongGraph {
 
         // Track visited song IDs to avoid revisiting nodes
         Set<String> visited = new HashSet<>();
+        Set<String> seenCandidateIds = new HashSet<>();
 
         // Queue holds pairs of [trackId, currentDepth]
         // Each entry is a song ID and how many hops away from seed it is
@@ -122,7 +123,10 @@ public class SongGraph {
             // Don't add the seed song itself to candidates
             if (!currentId.equals(seedId)) {
                 Song currentSong = songMap.get(currentId);
-                if (currentSong != null) candidates.add(currentSong);
+                if (currentSong != null && !seenCandidateIds.contains(currentSong.getTrackId())) {
+                    seenCandidateIds.add(currentSong.getTrackId());
+                    candidates.add(currentSong);
+                }
             }
 
             // Stop going deeper if we've hit the max depth

@@ -3,157 +3,173 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.text.*?>
 <?import javafx.geometry.*?>
-
-<!--<StackPane xmlns="http://javafx.com/javafx/21"
-           xmlns:fx="http://javafx.com/fxml/1"
-           fx:controller="com.example.musicfinder.HomeController"
-           styleClass="root-pane">&lt;!&ndash;&ndash;&gt;
-
-    &lt;!&ndash; Background gradient layer &ndash;&gt;
-    <VBox styleClass="home-background" alignment="CENTER" spacing="0">
-
-        &lt;!&ndash; Title section &ndash;&gt;
-        <VBox alignment="CENTER" spacing="8" VBox.vgrow="ALWAYS">
-            <padding><Insets top="120"/></padding>
-
-            <Label text="MUSIQ" styleClass="app-title"/>
-            <Label text="Discover music through language" styleClass="app-subtitle"/>
-        </VBox>
-
-        &lt;!&ndash; Search section &ndash;&gt;
-        <VBox alignment="CENTER" spacing="20" maxWidth="620">
-            <padding><Insets bottom="60"/></padding>
-
-            &lt;!&ndash; Search bar row &ndash;&gt;
-            <HBox alignment="CENTER" spacing="12">
-                <TextField fx:id="searchField"
-                           promptText="songs like Clocks by Coldplay but more dreamy..."
-                           styleClass="search-field"
-                           HBox.hgrow="ALWAYS"
-                           prefHeight="52"
-                           maxWidth="500"
-                           onAction="#handleSearch"/>
-                <Button fx:id="searchButton"
-                        text="→"
-                        styleClass="search-button"
-                        prefHeight="52"
-                        prefWidth="52"
-                        onAction="#handleSearch"/>
-            </HBox>
-
-            &lt;!&ndash; Options row &ndash;&gt;
-            <HBox alignment="CENTER" spacing="40">
-
-                &lt;!&ndash; Language toggle &ndash;&gt;
-                <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="Match query language" styleClass="option-label"/>
-                    <ToggleButton fx:id="languageToggle"
-                                  styleClass="toggle-button"
-                                  selected="false"/>
-                </HBox>
-
-                &lt;!&ndash; Song count selector &ndash;&gt;
-                <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="Results" styleClass="option-label"/>
-                    <ComboBox fx:id="songCountBox"
-                              styleClass="count-box"
-                              prefWidth="80"/>
-                </HBox>
-
-            </HBox>
-
-            &lt;!&ndash; Status label for errors &ndash;&gt;
-            <Label fx:id="statusLabel"
-                   styleClass="status-label"
-                   text=""
-                   wrapText="true"
-                   maxWidth="500"/>
-
-        </VBox>
-    </VBox>
-</StackPane>-->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<?import javafx.scene.shape.*?>
 
 <StackPane xmlns="http://javafx.com/javafx/21"
            xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.example.musicfinder.HomeController"
            styleClass="root-pane">
 
-<VBox styleClass="home-background"
-      alignment="CENTER"
-      spacing="34"
-      prefWidth="1000"
-      prefHeight="700">
+    <VBox styleClass="home-background" alignment="CENTER" spacing="0">
 
-    <!-- Title section -->
-    <VBox alignment="CENTER" spacing="10">
-        <Label text="MUSIQ" styleClass="app-title"/>
-        <Label text="Discover music through language" styleClass="app-subtitle"/>
-    </VBox>
+        <!-- App title — always visible -->
+        <VBox alignment="CENTER" spacing="8">
+            <padding><Insets top="80"/></padding>
+            <Label text="MUSIQ" styleClass="app-title"/>
+            <Label text="Discover music through language"
+                   styleClass="app-subtitle"/>
+        </VBox>
 
-    <!-- Search section -->
-    <VBox alignment="CENTER" spacing="18" maxWidth="680">
+        <!-- Step indicator -->
+        <HBox fx:id="stepIndicator" alignment="CENTER" spacing="12">
+            <padding><Insets top="32" bottom="0"/></padding>
 
-        <HBox alignment="CENTER" spacing="12" maxWidth="620">
-            <TextField fx:id="searchField"
-                       promptText="songs like Clocks by Coldplay but more dreamy..."
-                       styleClass="search-field"
-                       HBox.hgrow="ALWAYS"
-                       prefHeight="54"
-                       prefWidth="540"
-                       onAction="#handleSearch"/>
+            <!-- Step 1 dot -->
+            <StackPane>
+                <Circle fx:id="step1Dot"
+                                           radius="8" styleClass="step-dot-active"/>
+                <Label text="1" styleClass="step-dot-label"/>
+            </StackPane>
 
-            <Button fx:id="searchButton"
-                    text="→"
-                    styleClass="search-button"
-                    prefHeight="54"
-                    prefWidth="54"
-                    onAction="#handleSearch"/>
+            <!-- Connector line -->
+            <Rectangle
+                    fx:id="stepConnector"
+                    width="60" height="2"
+                    styleClass="step-connector"/>
+
+            <!-- Step 2 dot -->
+            <StackPane>
+                <Circle fx:id="step2Dot"
+                                           radius="8" styleClass="step-dot-inactive"/>
+                <Label text="2" styleClass="step-dot-label"/>
+            </StackPane>
         </HBox>
 
-        <HBox alignment="CENTER" spacing="32">
-            <HBox alignment="CENTER_LEFT" spacing="10">
-                <Label text="Match query language" styleClass="option-label"/>
-                <ToggleButton fx:id="languageToggle"
-                              styleClass="toggle-button"
-                              selected="false"/>
-            </HBox>
-
-            <HBox alignment="CENTER_LEFT" spacing="10">
-                <Label text="Results" styleClass="option-label"/>
-                <ComboBox fx:id="songCountBox"
-                          styleClass="count-box"
-                          prefWidth="90"/>
-            </HBox>
+        <!-- Step labels -->
+        <HBox alignment="CENTER" spacing="0">
+            <padding><Insets top="8" bottom="32"/></padding>
+            <Label fx:id="step1Label"
+                   text="Choose a seed song"
+                   styleClass="step-label-active"
+                   prefWidth="76"
+                   alignment="CENTER"/>
+            <Region prefWidth="60"/>
+            <Label fx:id="step2Label"
+                   text="Refine your vibe"
+                   styleClass="step-label-inactive"
+                   prefWidth="76"
+                   alignment="CENTER"/>
         </HBox>
 
-        <VBox fx:id="statusBox"
-              styleClass="status-box"
-              alignment="CENTER"
-              maxWidth="560"
-              visible="false"
-              managed="false">
+        <!-- STEP 1 PANEL — Seed song input -->
+        <VBox fx:id="step1Panel" alignment="CENTER" spacing="16" maxWidth="560">
+
+            <Label text="What song do you want to start from?"
+                   styleClass="step-question"/>
+            <Label text="This is your seed song — recommendations will radiate out from it."
+                   styleClass="step-hint"
+                   wrapText="true"
+                   maxWidth="480"
+                   textAlignment="CENTER"/>
+
+            <HBox alignment="CENTER" spacing="12">
+                <TextField fx:id="seedField"
+                           promptText="e.g.  Clocks by Coldplay"
+                           styleClass="search-field"
+                           prefHeight="52"
+                           prefWidth="420"
+                           onAction="#handleSeedNext"/>
+                <Button text="→"
+                        styleClass="search-button"
+                        prefHeight="52"
+                        prefWidth="52"
+                        onAction="#handleSeedNext"/>
+            </HBox>
+
+            <!-- Example seed chips -->
+            <HBox alignment="CENTER" spacing="10">
+                <padding><Insets top="8"/></padding>
+                <Label text="Try:" styleClass="option-label"/>
+                <Button text="Clocks · Coldplay"
+                        styleClass="example-chip"
+                        onAction="#handleChipClocks"/>
+                <Button text="Lose Yourself · Eminem"
+                        styleClass="example-chip"
+                        onAction="#handleChipEminem"/>
+                <Button text="Bohemian Rhapsody · Queen"
+                        styleClass="example-chip"
+                        onAction="#handleChipQueen"/>
+            </HBox>
+
+            <Label fx:id="seedErrorLabel"
+                   styleClass="status-label"
+                   text=""
+                   wrapText="true"
+                   maxWidth="480"/>
+
+        </VBox>
+
+        <!-- STEP 2 PANEL — Modifier input (hidden initially) -->
+        <VBox fx:id="step2Panel" alignment="CENTER"
+              spacing="16" maxWidth="560"
+              visible="false" managed="false">
+
+            <!-- Confirmed seed chip -->
+            <HBox alignment="CENTER" spacing="10">
+                <Label text="SEED SONG" styleClass="confirmed-label"/>
+                <Label fx:id="confirmedSeedLabel"
+                       text="" styleClass="confirmed-chip"/>
+                <Button text="✕" styleClass="clear-chip-button"
+                        onAction="#handleClearSeed"/>
+            </HBox>
+
+            <Label text="Now, how do you want to refine it?"
+                   styleClass="step-question"/>
+            <Label text="Describe the mood, energy, or style you're looking for. Or just hit Search to find similar songs."
+                   styleClass="step-hint"
+                   wrapText="true"
+                   maxWidth="480"
+                   textAlignment="CENTER"/>
+
+            <HBox alignment="CENTER" spacing="12">
+                <TextField fx:id="modifierField"
+                           promptText="e.g.  but more dreamy and less mainstream"
+                           styleClass="search-field"
+                           prefHeight="52"
+                           prefWidth="380"
+                           onAction="#handleSearch"/>
+                <Button text="→"
+                        styleClass="search-button"
+                        prefHeight="52"
+                        prefWidth="52"
+                        onAction="#handleSearch"/>
+            </HBox>
+
+            <!-- Options row -->
+            <HBox alignment="CENTER" spacing="40">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Match query language" styleClass="option-label"/>
+                    <ToggleButton fx:id="languageToggle"
+                                  styleClass="toggle-button"
+                                  selected="false"/>
+                </HBox>
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <Label text="Results" styleClass="option-label"/>
+                    <ComboBox fx:id="songCountBox"
+                              styleClass="count-box"
+                              prefWidth="80"/>
+                </HBox>
+            </HBox>
 
             <Label fx:id="statusLabel"
                    styleClass="status-label"
                    text=""
                    wrapText="true"
-                   maxWidth="520"/>
-        </VBox>
-    </VBox>
+                   maxWidth="480"/>
 
-</VBox>
+        </VBox>
+
+        <Region VBox.vgrow="ALWAYS"/>
+
+    </VBox>
 </StackPane>
