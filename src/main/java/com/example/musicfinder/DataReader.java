@@ -5,10 +5,7 @@ import com.opencsv.exceptions.CsvValidationException;
 
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class DataReader {
 
@@ -314,17 +311,67 @@ public class DataReader {
      */
     public static List<Song> loadAllSongs() {
         List<Song> all = new ArrayList<>();
-
-        // Dataset2 first — most common mainstream songs
         all.addAll(loadSongsV2("data/dataset2.csv"));
-
-        // Dataset3 second — good track_id coverage
         all.addAll(loadSongsV3("data/dataset3.csv"));
-
-        // Original dataset last
         all.addAll(loadSongs("data/dataset.csv"));
-
         System.out.println("Combined total before dedup: " + all.size());
-        return all;
+
+        // Deduplicate by normalized name+artist
+        // Use LinkedHashMap to preserve insertion order
+        // so dataset2 (most common songs) takes priority
+        Map<String, Song> deduped = new LinkedHashMap<>();
+        Map<String, String> nameKeyToId = new HashMap<>();
+
+        for (Song song : all) {
+            String nameKey = normalizeStatic(song.getTrackName())
+                    + "|"
+                    + normalizeStatic(song.getArtists());
+
+            if (!deduped.containsKey(nameKey)) {
+                // First time seeing this song — add it
+                deduped.put(nameKey, song);
+                nameKeyToId.put(nameKey, song.getTrackId());
+            } else {
+                // Already have this song — only replace if current
+                // version has a real Spotify ID and existing is synthetic
+                String existingId = nameKeyToId.get(nameKey);
+                boolean existingIsSynthetic = existingId.startsWith("v2_")
+                        || existingId.startsWith("v3_")
+                        || existingId.startsWith("v4_");
+                boolean newIsReal = !song.getTrackId().startsWith("v2_")
+                        && !song.getTrackId().startsWith("v3_")
+                        && !song.getTrackId().startsWith("v4_");
+
+                if (existingIsSynthetic && newIsReal) {
+                    deduped.put(nameKey, song);
+                    nameKeyToId.put(nameKey, song.getTrackId());
+                }
+                // Otherwise skip — keep first real ID seen
+            }
+        }
+
+        List<Song> result = new ArrayList<>(deduped.values());
+        System.out.println("After dedup: " + result.size() + " songs");
+        return result;
+    }
+    /**
+     * Static normalization for deduplication.
+     * Strips featured tags, punctuation, and whitespace differences.
+     */
+    static String normalizeStatic(String input) {
+        if (input == null) return "";
+        return input.toLowerCase()
+                .replaceAll("\\(feat\\..*?\\)", "")
+                .replaceAll("\\(ft\\..*?\\)", "")
+                .replaceAll("\\(with.*?\\)", "")
+                .replaceAll("feat\\..*", "")
+                .replaceAll("\\(.*remaster.*?\\)", "")
+                .replaceAll("\\(.*version.*?\\)", "")
+                .replaceAll("\\(.*edit.*?\\)", "")
+                .replaceAll("\\(.*mix.*?\\)", "")
+                .replaceAll("\\(.*live.*?\\)", "")
+                .replaceAll("[^a-z0-9\\s]", "")
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 }

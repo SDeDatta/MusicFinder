@@ -93,9 +93,9 @@
                 <Button text="Clocks · Coldplay"
                         styleClass="example-chip"
                         onAction="#handleChipClocks"/>
-                <Button text="Lose Yourself · Eminem"
+                <Button text="Blinding Lights · The Weeknd"
                         styleClass="example-chip"
-                        onAction="#handleChipEminem"/>
+                        onAction="#handleChipWeeknd"/>
                 <Button text="Bohemian Rhapsody · Queen"
                         styleClass="example-chip"
                         onAction="#handleChipQueen"/>

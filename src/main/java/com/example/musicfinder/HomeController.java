@@ -50,30 +50,14 @@ public class HomeController implements Initializable {
             statusLabel.setText("Loading music data...");
             new Thread(() -> {
                 try {
+                    // loadAllSongs now handles deduplication internally
                     List<Song> songList = DataReader.loadAllSongs();
-                    // Replace your existing HashMap building code with this:
+
                     Map<String, Song> songMap = new HashMap<>();
-                    Set<String> nameArtistSeen = new HashSet<>();
-
                     for (Song song : songList) {
-                        // Create a normalized key from artist + song name
-                        String nameKey = (song.getTrackName() + "|" + song.getArtists())
-                                .toLowerCase()
-                                .replaceAll("\\s+", " ")
-                                .trim();
-
-                        // Only add if we haven't seen this artist+name combo before
-                        // Prefer real Spotify IDs over synthetic ones
-                        if (!nameArtistSeen.contains(nameKey)) {
-                            nameArtistSeen.add(nameKey);
-                            songMap.put(song.getTrackId(), song);
-                        } else if (!song.getTrackId().startsWith("v2_")
-                                && !song.getTrackId().startsWith("v3_")) {
-                            // If we already have this song but current version has a real
-                            // Spotify ID, replace the synthetic version with the real one
-                            songMap.put(song.getTrackId(), song);
-                        }
+                        songMap.put(song.getTrackId(), song);
                     }
+
                     dedupedList = new ArrayList<>(songMap.values());
                     graph = new SongGraph(songMap);
                     graph.buildGraph(dedupedList, 0.90);
@@ -86,8 +70,7 @@ public class HomeController implements Initializable {
                     });
                 } catch (Exception e) {
                     javafx.application.Platform.runLater(() ->
-                            statusLabel.setText("Error loading data: "
-                                    + e.getMessage())
+                            statusLabel.setText("Error loading data: " + e.getMessage())
                     );
                 }
             }).start();
@@ -97,6 +80,13 @@ public class HomeController implements Initializable {
                     + " songs loaded.");
             statusLabel.setStyle("-fx-text-fill: #00d4aa;");
         }
+    }
+    private static boolean isRealSpotifyId(String id) {
+        return id != null
+                && !id.isBlank()
+                && !id.startsWith("v2_")
+                && !id.startsWith("v3_")
+                && !id.startsWith("v4_");
     }
 
     // -----------------------------------------------------------------------
@@ -136,9 +126,8 @@ public class HomeController implements Initializable {
         seedField.requestFocus();
     }
 
-    /** Pre-fills seed field with Eminem example */
-    @FXML private void handleChipEminem() {
-        seedField.setText("Lose Yourself by Eminem");
+    @FXML private void handleChipWeeknd() {
+        seedField.setText("Blinding Lights by The Weeknd");
         seedField.requestFocus();
     }
 
@@ -219,8 +208,18 @@ public class HomeController implements Initializable {
                     List<Song> candidates = graph.bfsTraversal(
                             finalSeed.getTrackId(), 2, 500
                     );
+                    // Deduplicate candidates by track ID before ranking
+// BFS can reach the same song through multiple paths
+                    List<Song> uniqueCandidates = new ArrayList<>();
+                    Set<String> seenCandidateIds = new HashSet<>();
+                    for (Song s : candidates) {
+                        if (seenCandidateIds.add(s.getTrackId())) {
+                            uniqueCandidates.add(s);
+                        }
+                    }
+
                     List<Song> recommendations = SimilarityFinder.findSimilar(
-                            finalSeed, candidates, fetchCount, finalResult.getWeights()
+                            finalSeed, uniqueCandidates, fetchCount, finalResult.getWeights()
                     );
 
                     // Same artist filter
@@ -403,7 +402,20 @@ public class HomeController implements Initializable {
 
             if (score > bestScore) { bestScore = score; bestMatch = s; }
         }
-
+        // Add this temporarily right after dedupedList is built
+        System.out.println("=== DUPLICATE DEBUG ===");
+        int count = 0;
+        for (Song s : dedupedList) {
+            if (s.getTrackName().toLowerCase().contains("christmas without you")
+                    && s.getArtists().toLowerCase().contains("republic")) {
+                count++;
+                System.out.println("  '" + s.getTrackName() + "' | '"
+                        + s.getArtists() + "' | ID: " + s.getTrackId()
+                        + " | Genre: " + s.getGenre());
+            }
+        }
+        System.out.println("Total copies in dedupedList: " + count);
+        System.out.println("======================");
         System.out.println("Best seed score: " + bestScore
                 + " → " + (bestMatch != null ? bestMatch.getTrackName() : "null"));
 
@@ -463,5 +475,30 @@ public class HomeController implements Initializable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    /**
+     * Aggressively normalizes a string for deduplication comparison.
+     * Removes featured artist tags, punctuation, extra spaces,
+     * and common suffixes that vary across datasets.
+     */
+    private static String normalizeForDedup(String input) {
+        if (input == null) return "";
+        return input.toLowerCase()
+                // Remove featured artist tags
+                .replaceAll("\\(feat\\..*?\\)", "")
+                .replaceAll("\\(ft\\..*?\\)", "")
+                .replaceAll("\\(with.*?\\)", "")
+                .replaceAll("feat\\..*", "")
+                // Remove remaster/version tags
+                .replaceAll("\\(.*remaster.*?\\)", "")
+                .replaceAll("\\(.*version.*?\\)", "")
+                .replaceAll("\\(.*edit.*?\\)", "")
+                .replaceAll("\\(.*mix.*?\\)", "")
+                .replaceAll("\\(.*live.*?\\)", "")
+                // Remove all punctuation and special characters
+                .replaceAll("[^a-z0-9\\s]", "")
+                // Collapse all whitespace to single space
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 }
