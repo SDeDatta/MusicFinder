@@ -196,7 +196,8 @@ public class HomeController implements Initializable {
                 javafx.application.Platform.runLater(() -> {
                     if (finalSeed == null) {
                         showSeedNotFoundError(
-                                result.getSeedSong(), result.getSeedArtist()
+                                result.getSeedSong() != null ? result.getSeedSong() : confirmedSeedText,
+                                result.getSeedArtist()
                         );
                         return;
                     }
@@ -260,7 +261,7 @@ public class HomeController implements Initializable {
                     );
 
 // If quality gate returned nothing, lower threshold and retry
-                    if (recommendations.isEmpty()) {
+                    /*if (recommendations.isEmpty()) {
                         System.out.println("Quality gate too strict — retrying with lower threshold");
                         recommendations = SimilarityFinder.findSimilarQualityGated(
                                 finalSeed,
@@ -278,7 +279,7 @@ public class HomeController implements Initializable {
                         recommendations = SimilarityFinder.findSimilar(
                                 finalSeed, uniqueCandidates, songCount, finalResult.getWeights()
                         );
-                    }
+                    }*/
                     if (recommendations.isEmpty()) {
                         showNoResultsError(finalSeed, fullQuery);
                         return;
@@ -519,8 +520,9 @@ public class HomeController implements Initializable {
         title.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 28px;" +
                 "-fx-font-weight: bold; -fx-text-fill: #e0f0ff;");
 
-        String searchedFor = "\"" + (songName != null ? songName : "unknown") + "\""
-                + (artistName != null ? " by " + artistName : "");
+        String searchedFor = songName != null && !songName.isBlank()
+                ? "\"" + songName + "\"" + (artistName != null ? " by " + artistName : "")
+                : "\"" + confirmedSeedText + "\"";
         Label searched = new Label("We looked for " + searchedFor);
         searched.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 14px;" +
                 "-fx-text-fill: #ff6b6b; -fx-font-style: italic;");

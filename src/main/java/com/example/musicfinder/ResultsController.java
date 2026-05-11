@@ -59,48 +59,6 @@ public class ResultsController {
         // Generate audio fingerprint visual instead of plain initial
         javafx.scene.layout.Pane artPane = buildAudioFingerprint(song, accentColor);
 
-// Only attempt real image for songs with genuine Spotify track IDs
-        if (!song.getTrackId().startsWith("v2_")
-                && !song.getTrackId().startsWith("v3_")) {
-
-            // Load image on background thread so cards appear instantly
-            // and images fill in as they load
-            javafx.concurrent.Task<Image> imageTask = new javafx.concurrent.Task<>() {
-                @Override
-                protected Image call() {
-                    return ImageLoader.fetchAlbumArt(song.getTrackId());
-                }
-            };
-
-            imageTask.setOnSucceeded(e -> {
-                Image img = imageTask.getValue();
-                if (img != null && !img.isError()) {
-                    // Image loaded successfully — replace initial with real art
-                    javafx.scene.image.ImageView imageView =
-                            new javafx.scene.image.ImageView(img);
-                    imageView.setFitWidth(248);
-                    imageView.setFitHeight(248);
-                    imageView.setPreserveRatio(false);
-
-                    // Clip to rounded corners to match card style
-                    javafx.scene.shape.Rectangle clip =
-                            new javafx.scene.shape.Rectangle(248, 248);
-                    clip.setArcWidth(8);
-                    clip.setArcHeight(8);
-                    imageView.setClip(clip);
-                }
-                // If image failed, initial letter stays visible — no action needed
-            });
-
-            imageTask.setOnFailed(e ->
-                    System.out.println("Image task failed for: " + song.getTrackName())
-            );
-
-            // Run on a background thread
-            Thread imageThread = new Thread(imageTask);
-            imageThread.setDaemon(true); // won't prevent app from closing
-            imageThread.start();
-        }
 // Add colored left border accent to card
         card.setStyle(
                 "-fx-background-color: #112240;" +

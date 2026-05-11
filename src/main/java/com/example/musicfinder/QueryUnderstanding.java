@@ -67,31 +67,32 @@ public class QueryUnderstanding {
     
     Example input: "songs like Bohemian Rhapsody but more groovy and EDM"
     Example output:
-    {
-      "energy": 2.0,
-      "valence": 1.2,
-      "danceability": 2.5,
-      "acousticness": 0.2,
-      "instrumentalness": 1.0,
-      "liveness": 0.5,
-      "speechiness": 0.5,
-      "loudness": 1.5,
-      "tempo": 1.8,
-      "popularityBias": 0,
-      "seedSong": "Bohemian Rhapsody",
-      "seedArtist": "Queen",
-      "sameArtistOnly": false,
-      "differentLanguage": false,
-      "targetLanguage": null,
-      "minimumQuality": 0.78,
-      "vibeTargets": {
-        "danceability": 0.85,
-        "energy": 0.82,
-        "tempo": 0.78,
-        "acousticness": 0.05,
-        "valence": 0.72
-        "seedLanguage": "en"
-      }
+            {
+                 "energy": 2.0,
+                 "valence": 1.2,
+                 "danceability": 2.5,
+                 "acousticness": 0.2,
+                 "instrumentalness": 1.0,
+                 "liveness": 0.5,
+                 "speechiness": 0.5,
+                 "loudness": 1.5,
+                 "tempo": 1.8,
+                 "popularityBias": 0,
+                 "seedSong": "Bohemian Rhapsody",
+                 "seedArtist": "Queen",
+                 "sameArtistOnly": false,
+                 "differentLanguage": false,
+                 "targetLanguage": null,
+                 "minimumQuality": 0.78,
+                 "seedLanguage": "en",
+                 "vibeTargets": {
+                   "danceability": 0.85,
+                   "energy": 0.82,
+                   "tempo": 0.78,
+                   "acousticness": 0.05,
+                   "valence": 0.72
+                 }
+               }
     }
     """;
 

@@ -516,7 +516,7 @@ public class DataReader {
         System.out.println("After dedup: " + result.size() + " songs");
 
         // --- Enrich with metadata dataset ---
-        Map<String, SongMetadata> enrichment =
+       /* Map<String, SongMetadata> enrichment =
                 loadEnrichmentData("data/dataset_enrichment.csv");
 
         int enriched = 0;
@@ -542,7 +542,7 @@ public class DataReader {
             }
         }
 
-        System.out.println("Enriched " + enriched + " songs with better metadata");
+        System.out.println("Enriched " + enriched + " songs with better metadata");*/
         return result;
     }
     /**
