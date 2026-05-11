@@ -10,6 +10,7 @@ public class SongGraph {
 
     // Reference to the song map for quick Song object lookup by trackId
     private Map<String, Song> songMap;
+    private Set<String> builtGenres = new HashSet<>();
 
     public SongGraph(Map<String, Song> songMap) {
         this.songMap = songMap;
@@ -84,6 +85,51 @@ public class SongGraph {
 
         /*System.out.println("Graph complete. Total edges: " + totalEdges);
         System.out.println("Total nodes with connections: " + adjacencyList.size());*/
+    }
+    public void buildForGenre(String genre, List<Song> allSongs, double similarityThreshold) {
+        String genreKey = genre.toLowerCase().trim();
+
+        // If this genre has already been built, do nothing
+        if (builtGenres.contains(genreKey)) {
+            return;
+        }
+
+        System.out.println("Building graph for genre: " + genreKey);
+
+        List<Song> genreSongs = new ArrayList<>();
+
+        for (Song s : allSongs) {
+            if (s.getGenre().toLowerCase().trim().equals(genreKey)) {
+                genreSongs.add(s);
+            }
+        }
+
+        for (int i = 0; i < genreSongs.size(); i++) {
+            Song songA = genreSongs.get(i);
+
+            for (int j = i + 1; j < genreSongs.size(); j++) {
+                Song songB = genreSongs.get(j);
+
+                double audioScore = SimilarityFinder.cosineSimilarity(
+                        songA.toFeatureVector(),
+                        songB.toFeatureVector()
+                );
+
+                double genreScore = SimilarityFinder.genreSimilarity(songA, songB);
+
+                double finalScore = (0.9 * audioScore) + (0.1 * genreScore);
+
+                if (finalScore >= similarityThreshold) {
+                    addEdge(songA.getTrackId(), songB.getTrackId());
+                    addEdge(songB.getTrackId(), songA.getTrackId());
+                }
+            }
+        }
+
+        builtGenres.add(genreKey);
+
+        System.out.println("Finished building genre: " + genreKey
+                + " (" + genreSongs.size() + " songs)");
     }
 
     /**

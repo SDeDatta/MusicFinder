@@ -374,6 +374,72 @@ public class DataReader {
         return songs;
     }
     /**
+     * Loads the sixth Spotify dataset.
+     * Columns: id, name, artists, popularity, year, release_date,
+     * valence, acousticness, danceability, duration_ms, energy,
+     * explicit, instrumentalness, key, liveness, loudness,
+     * mode, speechiness, tempo
+     *
+     * Has real Spotify IDs, real popularity, and all audio features
+     * in standard 0.0-1.0 decimal format.
+     * Missing: genre — defaults to "unknown" and will be enriched
+     * by deduplication with other datasets that have genre data.
+     */
+    /**
+     * Loads the enrichment dataset which has no audio features
+     * but has rich metadata: real track IDs, artist genres,
+     * and popularity scores.
+     *
+     * Returns a Map keyed by track_id for fast lookup.
+     * Used to enrich songs already loaded from other datasets.
+     */
+    public static Map<String, SongMetadata> loadEnrichmentData(String filePath) {
+        Map<String, SongMetadata> metadata = new HashMap<>();
+
+        try (CSVReader reader = new CSVReader(new FileReader(filePath))) {
+
+            String[] headers = reader.readNext();
+            Map<String, Integer> colIndex = new HashMap<>();
+            for (int i = 0; i < headers.length; i++) {
+                colIndex.put(headers[i].trim().toLowerCase(), i);
+            }
+
+            String[] row;
+            while ((row = reader.readNext()) != null) {
+                if (row.length < 5) continue;
+
+                try {
+                    String trackId    = getCol(row, colIndex, "track_id",         "");
+                    String genre      = getCol(row, colIndex, "artist_genres",    "");
+                    int popularity    = parseIntCol(row, colIndex,
+                            "track_popularity", -1);
+
+                    if (trackId.isEmpty()) continue;
+
+                    // artist_genres comes as a string like
+                    // "['pop', 'dance pop', 'electropop']"
+                    // Clean it into a simple genre string
+                    String cleanedGenre = genre
+                            .replaceAll("[\\[\\]'\"\\s]", "")
+                            .split(",")[0]; // take first genre listed
+                    if (cleanedGenre.isEmpty()) cleanedGenre = null;
+
+                    metadata.put(trackId, new SongMetadata(cleanedGenre, popularity));
+
+                } catch (Exception e) {
+                    // Skip malformed rows silently
+                }
+            }
+
+        } catch (IOException | CsvValidationException e) {
+            System.out.println("Could not load enrichment data: " + e.getMessage());
+        }
+
+        System.out.println("Enrichment data loaded: " + metadata.size() + " entries");
+        return metadata;
+    }
+
+    /**
      * Safely gets a string value from a row using a column name lookup.
      * Returns defaultVal if column doesn't exist or value is empty.
      */
@@ -422,24 +488,16 @@ public class DataReader {
         all.addAll(loadSongs("data/dataset.csv"));
         System.out.println("Combined total before dedup: " + all.size());
 
-        // Deduplicate by normalized name+artist
-        // Use LinkedHashMap to preserve insertion order
-        // so dataset2 (most common songs) takes priority
+        // --- dedup logic (unchanged) ---
         Map<String, Song> deduped = new LinkedHashMap<>();
         Map<String, String> nameKeyToId = new HashMap<>();
-
         for (Song song : all) {
             String nameKey = normalizeStatic(song.getTrackName())
-                    + "|"
-                    + normalizeStatic(song.getArtists());
-
+                    + "|" + normalizeStatic(song.getArtists());
             if (!deduped.containsKey(nameKey)) {
-                // First time seeing this song — add it
                 deduped.put(nameKey, song);
                 nameKeyToId.put(nameKey, song.getTrackId());
             } else {
-                // Already have this song — only replace if current
-                // version has a real Spotify ID and existing is synthetic
                 String existingId = nameKeyToId.get(nameKey);
                 boolean existingIsSynthetic = existingId.startsWith("v2_")
                         || existingId.startsWith("v3_")
@@ -447,17 +505,44 @@ public class DataReader {
                 boolean newIsReal = !song.getTrackId().startsWith("v2_")
                         && !song.getTrackId().startsWith("v3_")
                         && !song.getTrackId().startsWith("v4_");
-
                 if (existingIsSynthetic && newIsReal) {
                     deduped.put(nameKey, song);
                     nameKeyToId.put(nameKey, song.getTrackId());
                 }
-                // Otherwise skip — keep first real ID seen
             }
         }
 
         List<Song> result = new ArrayList<>(deduped.values());
         System.out.println("After dedup: " + result.size() + " songs");
+
+        // --- Enrich with metadata dataset ---
+        Map<String, SongMetadata> enrichment =
+                loadEnrichmentData("data/dataset_enrichment.csv");
+
+        int enriched = 0;
+        for (Song song : result) {
+            SongMetadata meta = enrichment.get(song.getTrackId());
+            if (meta == null) continue;
+
+            // Update genre if current genre is unknown or generic
+            // and enrichment has a real value
+            if (meta.genre != null && !meta.genre.isEmpty()) {
+                String currentGenre = song.getGenre().toLowerCase();
+                if (currentGenre.equals("unknown") || currentGenre.equals("pop")
+                        || currentGenre.isEmpty()) {
+                    song.setGenre(meta.genre);
+                    enriched++;
+                }
+            }
+
+            // Update popularity if enrichment has a real value
+            // and current popularity is the neutral default
+            if (meta.popularity >= 0 && song.getPopularity() == 50) {
+                song.setPopularity(meta.popularity);
+            }
+        }
+
+        System.out.println("Enriched " + enriched + " songs with better metadata");
         return result;
     }
     /**

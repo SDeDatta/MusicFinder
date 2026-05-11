@@ -60,8 +60,6 @@ public class HomeController implements Initializable {
 
                     dedupedList = new ArrayList<>(songMap.values());
                     graph = new SongGraph(songMap);
-                    graph.buildGraph(dedupedList, 0.90);
-
                     javafx.application.Platform.runLater(() -> {
                         dataLoaded = true;
                         statusLabel.setText("Ready — " + dedupedList.size()
@@ -175,6 +173,7 @@ public class HomeController implements Initializable {
         boolean matchLanguage = languageToggle.isSelected();
         int songCount = songCountBox.getValue();
 
+
         statusLabel.setStyle("-fx-text-fill: #5a8a9f;");
         statusLabel.setText("Interpreting your query...");
 
@@ -205,9 +204,39 @@ public class HomeController implements Initializable {
                     statusLabel.setText("Getting recommendations...");
 
                     int fetchCount = songCount * 3;
-                    List<Song> candidates = graph.bfsTraversal(
-                            finalSeed.getTrackId(), 2, 500
-                    );
+                    graph.buildForGenre(finalSeed.getGenre(), dedupedList, 0.90);
+                    // If different language requested, also build likely target genre graphs
+                    if (finalResult.isDifferentLanguage()) {
+                        // Build graphs for common non-English genres so we have
+                        // candidates to draw from when filtering by language
+                        String[] crossGenres = {
+                                "latin", "reggaeton", "salsa", "j-pop", "k-pop",
+                                "cantopop", "mandopop", "mpb", "sertanejo", "anime",
+                                "french", "german", "spanish", "flamenco", "russian"
+                        };
+                        for (String g : crossGenres) {
+                            graph.buildForGenre(g, dedupedList, 0.90);
+                        }
+                    }
+
+                    List<Song> candidates;
+
+                    if (finalResult.isDifferentLanguage()) {
+                        // For language queries, BFS won't help since edges
+                        // don't cross genres — search directly by language instead
+                        candidates = new ArrayList<>();
+                        String seedLang = finalSeed.inferredLanguage();
+                        for (Song s : dedupedList) {
+                            if (!s.inferredLanguage().equals(seedLang)) {
+                                candidates.add(s);
+                            }
+                        }
+                        System.out.println("Language candidates pool: " + candidates.size());
+                    } else {
+                        // Normal case — use BFS from seed song
+                        candidates = graph.bfsTraversal(finalSeed.getTrackId(), 2, 500);
+                    }
+
                     // Deduplicate candidates by track ID before ranking
 // BFS can reach the same song through multiple paths
                     List<Song> uniqueCandidates = new ArrayList<>();
@@ -218,9 +247,42 @@ public class HomeController implements Initializable {
                         }
                     }
 
-                    List<Song> recommendations = SimilarityFinder.findSimilar(
-                            finalSeed, uniqueCandidates, fetchCount, finalResult.getWeights()
+                    // Use quality-gated finder instead of fixed top-N
+                    // Remove weird/non-musical recommendation contexts
+                    uniqueCandidates.removeIf(this::isBadContextForGeneralMusic);
+                    List<Song> recommendations = SimilarityFinder.findSimilarQualityGated(
+                            finalSeed,
+                            uniqueCandidates,
+                            finalResult.getWeights(),
+                            finalResult.getVibeTargets(),
+                            finalResult.getMinimumQuality(),
+                            songCount  // max results cap — user's requested count
                     );
+
+// If quality gate returned nothing, lower threshold and retry
+                    if (recommendations.isEmpty()) {
+                        System.out.println("Quality gate too strict — retrying with lower threshold");
+                        recommendations = SimilarityFinder.findSimilarQualityGated(
+                                finalSeed,
+                                uniqueCandidates,
+                                finalResult.getWeights(),
+                                finalResult.getVibeTargets(),
+                                finalResult.getMinimumQuality() * 0.85, // 15% looser
+                                songCount
+                        );
+                    }
+
+// If still empty, fall back to standard finder
+                    if (recommendations.isEmpty()) {
+                        System.out.println("Falling back to standard similarity finder");
+                        recommendations = SimilarityFinder.findSimilar(
+                                finalSeed, uniqueCandidates, songCount, finalResult.getWeights()
+                        );
+                    }
+                    if (recommendations.isEmpty()) {
+                        showNoResultsError(finalSeed, fullQuery);
+                        return;
+                    }
 
                     // Same artist filter
                     if (finalResult.isSameArtistOnly()) {
@@ -238,20 +300,50 @@ public class HomeController implements Initializable {
                     }
 
                     // Different language filter
-                    if (finalResult.isDifferentLanguage() || matchLanguage) {
-                        String seedLang = finalSeed.inferredLanguage();
-                        List<Song> filtered = new ArrayList<>();
-                        for (Song s : recommendations) {
-                            boolean langCondition = matchLanguage
-                                    ? s.inferredLanguage().equals(seedLang)
-                                    : !s.inferredLanguage().equals(seedLang);
-                            if (langCondition) {
-                                filtered.add(s);
-                                if (filtered.size() >= songCount) break;
+                    // Language filtering — toggle matches seed language, LLM flag finds different language
+                            boolean languageFilterActive = matchLanguage || finalResult.isDifferentLanguage();
+
+                            if (languageFilterActive) {
+                                // Use LLM-provided seed language instead of inferredLanguage()
+                                // The LLM actually knows what language the seed song is in
+                                String seedLang   = finalResult.getSeedLanguage();
+                                String targetLang = finalResult.getTargetLanguage();
+
+                                List<Song> filtered = new ArrayList<>();
+                                for (Song s : recommendations) {
+                                    boolean passes;
+
+                                    if (matchLanguage && !finalResult.isDifferentLanguage()) {
+                                        // Toggle on — keep only songs matching the seed's language
+                                        // Still uses inferredLanguage() for candidates since LLM
+                                        // only tells us the seed's language, not every candidate's
+                                        passes = s.inferredLanguage().equals(seedLang);
+                                    } else if (finalResult.isDifferentLanguage() && targetLang != null) {
+                                        // LLM detected specific target language (e.g. "in Spanish")
+                                        passes = s.inferredLanguage().equals(targetLang);
+                                    } else {
+                                        // Different language but no specific target
+                                        passes = !s.inferredLanguage().equals(seedLang);
+                                    }
+
+                                    if (passes) {
+                                        filtered.add(s);
+                                        if (filtered.size() >= songCount) break;
+                                    }
+                                }
+
+                                if (filtered.size() >= 2) {
+                                    recommendations = filtered;
+                                    System.out.println("Language filter applied: "
+                                            + filtered.size() + " results (seedLang=" + seedLang
+                                            + ", matchLanguage=" + matchLanguage
+                                            + ", targetLang=" + targetLang + ")");
+                                } else {
+                                    System.out.println("Language filter too aggressive ("
+                                            + filtered.size() + " results) — showing unfiltered");
+                                }
                             }
-                        }
-                        if (filtered.size() >= 2) recommendations = filtered;
-                    }
+
 
                     // Trim to requested count
                     if (recommendations.size() > songCount) {
@@ -402,20 +494,6 @@ public class HomeController implements Initializable {
 
             if (score > bestScore) { bestScore = score; bestMatch = s; }
         }
-        // Add this temporarily right after dedupedList is built
-        System.out.println("=== DUPLICATE DEBUG ===");
-        int count = 0;
-        for (Song s : dedupedList) {
-            if (s.getTrackName().toLowerCase().contains("christmas without you")
-                    && s.getArtists().toLowerCase().contains("republic")) {
-                count++;
-                System.out.println("  '" + s.getTrackName() + "' | '"
-                        + s.getArtists() + "' | ID: " + s.getTrackId()
-                        + " | Genre: " + s.getGenre());
-            }
-        }
-        System.out.println("Total copies in dedupedList: " + count);
-        System.out.println("======================");
         System.out.println("Best seed score: " + bestScore
                 + " → " + (bestMatch != null ? bestMatch.getTrackName() : "null"));
 
@@ -477,28 +555,87 @@ public class HomeController implements Initializable {
         }
     }
     /**
+     * Shows a friendly screen when no songs pass the quality threshold.
+     * Tells the user their criteria were too specific and suggests
+     * either broadening the query or trying a different seed song.
+     */
+    private void showNoResultsError(Song seed, String query) {
+        javafx.scene.layout.VBox errorScreen = new javafx.scene.layout.VBox(24);
+        errorScreen.setAlignment(javafx.geometry.Pos.CENTER);
+        errorScreen.setStyle("-fx-background-color: #0a1628;");
+        errorScreen.setPadding(new javafx.geometry.Insets(60));
+
+        Label icon = new Label("🎵");
+        icon.setStyle("-fx-font-size: 64px;");
+
+        Label title = new Label("No Songs Met the Criteria");
+        title.setStyle(
+                "-fx-font-family: 'Georgia'; -fx-font-size: 26px;" +
+                        "-fx-font-weight: bold; -fx-text-fill: #e0f0ff;"
+        );
+
+        Label detail = new Label(
+                "Your query was too specific for the songs in our dataset.\n" +
+                        "No recommendations scored high enough to meet the quality bar."
+        );
+        detail.setStyle(
+                "-fx-font-family: 'Georgia'; -fx-font-size: 13px;" +
+                        "-fx-text-fill: #5a8a9f; -fx-font-style: italic;"
+        );
+        detail.setWrapText(true);
+        detail.setMaxWidth(500);
+        detail.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+
+        Label suggestions = new Label(
+                "Try:\n" +
+                        "• Removing specific style descriptors (e.g. drop \"EDM\" or \"groovy\")\n" +
+                        "• Using a different seed song in a more common genre\n" +
+                        "• Simplifying to just \"songs like " + seed.getTrackName() + "\""
+        );
+        suggestions.setStyle(
+                "-fx-font-family: 'Georgia'; -fx-font-size: 12px;" +
+                        "-fx-text-fill: #5a8a9f;"
+        );
+        suggestions.setWrapText(true);
+        suggestions.setMaxWidth(480);
+
+        Button tryAgain = new Button("← Try Again");
+        tryAgain.setStyle(
+                "-fx-background-color: #00d4aa; -fx-background-radius: 26;" +
+                        "-fx-text-fill: #0a1628; -fx-font-family: 'Georgia';" +
+                        "-fx-font-size: 14px; -fx-font-weight: bold;" +
+                        "-fx-cursor: hand; -fx-padding: 12 32 12 32;"
+        );
+        tryAgain.setOnAction(e -> goHomeWithQuery(""));
+
+        errorScreen.getChildren().addAll(icon, title, detail, suggestions, tryAgain);
+
+        Scene scene = new Scene(errorScreen, 1000, 700);
+        scene.getStylesheets().add(
+                HelloApplication.class.getResource("styles.css").toExternalForm()
+        );
+        HelloApplication.primaryStage.setScene(scene);
+    }
+    /**
      * Aggressively normalizes a string for deduplication comparison.
      * Removes featured artist tags, punctuation, extra spaces,
      * and common suffixes that vary across datasets.
      */
-    private static String normalizeForDedup(String input) {
-        if (input == null) return "";
-        return input.toLowerCase()
-                // Remove featured artist tags
-                .replaceAll("\\(feat\\..*?\\)", "")
-                .replaceAll("\\(ft\\..*?\\)", "")
-                .replaceAll("\\(with.*?\\)", "")
-                .replaceAll("feat\\..*", "")
-                // Remove remaster/version tags
-                .replaceAll("\\(.*remaster.*?\\)", "")
-                .replaceAll("\\(.*version.*?\\)", "")
-                .replaceAll("\\(.*edit.*?\\)", "")
-                .replaceAll("\\(.*mix.*?\\)", "")
-                .replaceAll("\\(.*live.*?\\)", "")
-                // Remove all punctuation and special characters
-                .replaceAll("[^a-z0-9\\s]", "")
-                // Collapse all whitespace to single space
-                .replaceAll("\\s+", " ")
-                .trim();
+    private boolean isBadContextForGeneralMusic(Song s) {
+        String text = (s.getTrackName() + " "
+                + s.getArtists() + " "
+                + s.getGenre()).toLowerCase();
+
+        return text.contains("my little pony")
+                || text.contains("disney")
+                || text.contains("kids")
+                || text.contains("children")
+                || text.contains("cartoon")
+                || text.contains("soundtrack")
+                || text.contains("musical")
+                || text.contains("karaoke")
+                || text.contains("cover")
+                || text.contains("tribute")
+                || text.contains("comedy");
     }
 }

@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Map;
 
 public class QueryUnderstanding {
 
@@ -24,7 +25,7 @@ public class QueryUnderstanding {
     When given a natural language music query, return ONLY a JSON object.
     No explanation, no markdown, no extra text — pure JSON only.
     
-    Fields and meanings:
+    Fields and their meanings:
     - energy: intensity (0.0=calm, 1.0=intense), weight 0.1-3.0
     - valence: positivity (0.0=sad, 1.0=happy), weight 0.1-3.0
     - danceability: (0.0=not danceable, 1.0=very), weight 0.1-3.0
@@ -34,34 +35,63 @@ public class QueryUnderstanding {
     - speechiness: (0.0=no speech, 1.0=all speech), weight 0.1-3.0
     - loudness: (0.0=quiet, 1.0=loud), weight 0.1-3.0
     - tempo: (0.0=slow, 1.0=fast), weight 0.1-3.0
-    - popularityBias: -100 to +100, negative=obscure, positive=popular
-    - seedSong: exact song title from query, or null
-    - seedArtist: exact artist name from query, or null
-    - sameArtistOnly: true if the query asks for songs by the same artist
-      (e.g. "more songs by them", "other songs by this artist",
-      "more Coldplay songs"). false otherwise.
-    - differentLanguage: true if the query asks for songs in a
-      different language than the seed song
-      (e.g. "but in Spanish", "in a different language",
-      "not in English"). false otherwise.
+    - popularityBias: -100 to +100
+    - seedSong: exact song title or null
+    - seedArtist: exact artist name or null
+    - sameArtistOnly: true if user wants more songs by same artist
+    - differentLanguage: true if user wants different language
+    - targetLanguage: ISO code if differentLanguage is true, else null
+    - "- seedLanguage: the ISO language code of the seed song itself. " +
+              "Use your knowledge of the song to determine what language it is sung in. " +
+              "Examples: 'en' for English, 'es' for Spanish, 'tl' for Tagalog, " +
+              "'ko' for Korean, 'ja' for Japanese, 'pt' for Portuguese, 'fr' for French. " +
+              "Always provide this — never null.\\n"
+    - minimumQuality: a threshold between 0.0 and 1.0 representing
+      how strictly candidates must match the described vibe.
+      Use 0.5 for vague queries with no strong descriptors.
+      Use 0.65-0.75 for queries with clear mood words like
+      "dreamy", "energetic", "melancholic".
+      Use 0.75-0.85 for very specific genre or style requests
+      like "EDM", "groovy", "classical piano", "lo-fi hip hop".
+      Higher = fewer but more precise results.
+    - vibeTargets: a JSON object describing the IDEAL audio feature
+      values for the requested vibe, independent of the seed song.
+      These are absolute target values (0.0-1.0) not weights.
+      Only include features that the query specifically implies.
+      Example for "groovy EDM":
+      {"danceability": 0.85, "energy": 0.80, "tempo": 0.75,
+       "acousticness": 0.05, "valence": 0.70}
+      Example for "dreamy acoustic":
+      {"acousticness": 0.85, "energy": 0.25, "valence": 0.50}
+      Leave as {} if no strong vibe descriptors in query.
     
-    Example input: "more songs by Coldplay but less mainstream"
+    Example input: "songs like Bohemian Rhapsody but more groovy and EDM"
     Example output:
     {
-      "energy": 1.0,
-      "valence": 1.0,
-      "danceability": 1.0,
-      "acousticness": 1.0,
+      "energy": 2.0,
+      "valence": 1.2,
+      "danceability": 2.5,
+      "acousticness": 0.2,
       "instrumentalness": 1.0,
-      "liveness": 1.0,
-      "speechiness": 1.0,
-      "loudness": 1.0,
-      "tempo": 1.0,
-      "popularityBias": -60,
-      "seedSong": null,
-      "seedArtist": "Coldplay",
-      "sameArtistOnly": true,
-      "differentLanguage": false
+      "liveness": 0.5,
+      "speechiness": 0.5,
+      "loudness": 1.5,
+      "tempo": 1.8,
+      "popularityBias": 0,
+      "seedSong": "Bohemian Rhapsody",
+      "seedArtist": "Queen",
+      "sameArtistOnly": false,
+      "differentLanguage": false,
+      "targetLanguage": null,
+      "minimumQuality": 0.78,
+      "vibeTargets": {
+        "danceability": 0.85,
+        "energy": 0.82,
+        "tempo": 0.78,
+        "acousticness": 0.05,
+        "valence": 0.72
+        "seedLanguage": "en"
+      }
     }
     """;
 
@@ -129,35 +159,56 @@ public class QueryUnderstanding {
                 .getAsJsonObject("message");
 
         String content = message.get("content").getAsString().trim();
-        JsonObject weights = JsonParser.parseString(content).getAsJsonObject();
+        JsonObject json = JsonParser.parseString(content).getAsJsonObject();
 
         WeightVector wv = new WeightVector();
-        wv.energy           = getDouble(weights, "energy",           1.0);
-        wv.valence          = getDouble(weights, "valence",          1.0);
-        wv.danceability     = getDouble(weights, "danceability",     1.0);
-        wv.acousticness     = getDouble(weights, "acousticness",     1.0);
-        wv.instrumentalness = getDouble(weights, "instrumentalness", 1.0);
-        wv.liveness         = getDouble(weights, "liveness",         1.0);
-        wv.speechiness      = getDouble(weights, "speechiness",      1.0);
-        wv.loudness         = getDouble(weights, "loudness",         1.0);
-        wv.tempo            = getDouble(weights, "tempo",            1.0);
-        wv.popularityBias   = getDouble(weights, "popularityBias",   0.0);
+        wv.energy           = getDouble(json, "energy",           1.0);
+        wv.valence          = getDouble(json, "valence",          1.0);
+        wv.danceability     = getDouble(json, "danceability",     1.0);
+        wv.acousticness     = getDouble(json, "acousticness",     1.0);
+        wv.instrumentalness = getDouble(json, "instrumentalness", 1.0);
+        wv.liveness         = getDouble(json, "liveness",         1.0);
+        wv.speechiness      = getDouble(json, "speechiness",      1.0);
+        wv.loudness         = getDouble(json, "loudness",         1.0);
+        wv.tempo            = getDouble(json, "tempo",            1.0);
+        wv.popularityBias   = getDouble(json, "popularityBias",   0.0);
 
-        String seedSong   = weights.has("seedSong") &&
-                !weights.get("seedSong").isJsonNull()
-                ? weights.get("seedSong").getAsString() : null;
-        String seedArtist = weights.has("seedArtist") &&
-                !weights.get("seedArtist").isJsonNull()
-                ? weights.get("seedArtist").getAsString() : null;
+        String seedSong   = json.has("seedSong") &&
+                !json.get("seedSong").isJsonNull()
+                ? json.get("seedSong").getAsString() : null;
+        String seedArtist = json.has("seedArtist") &&
+                !json.get("seedArtist").isJsonNull()
+                ? json.get("seedArtist").getAsString() : null;
 
-        // Parse the two new boolean fields
-        boolean sameArtistOnly = weights.has("sameArtistOnly") &&
-                weights.get("sameArtistOnly").getAsBoolean();
-        boolean differentLanguage = weights.has("differentLanguage") &&
-                weights.get("differentLanguage").getAsBoolean();
+        boolean sameArtistOnly   = json.has("sameArtistOnly") &&
+                json.get("sameArtistOnly").getAsBoolean();
+        boolean differentLanguage = json.has("differentLanguage") &&
+                json.get("differentLanguage").getAsBoolean();
+        String targetLanguage = json.has("targetLanguage") &&
+                !json.get("targetLanguage").isJsonNull()
+                ? json.get("targetLanguage").getAsString() : null;
+        String seedLanguage = (json.has("seedLanguage")
+                && !json.get("seedLanguage").isJsonNull())
+                ? json.get("seedLanguage").getAsString().toLowerCase().trim()
+                : "en";
+
+        // Parse minimumQuality — default 0.5 if missing
+        double minimumQuality = getDouble(json, "minimumQuality", 0.5);
+
+        // Parse vibeTargets — a nested JSON object of feature → target value
+        Map<String, Double> vibeTargets = new java.util.HashMap<>();
+        if (json.has("vibeTargets") && json.get("vibeTargets").isJsonObject()) {
+            JsonObject vt = json.getAsJsonObject("vibeTargets");
+            for (String key : vt.keySet()) {
+                try {
+                    vibeTargets.put(key, vt.get(key).getAsDouble());
+                } catch (Exception ignored) {}
+            }
+        }
 
         return new QueryResult(wv, seedSong, seedArtist,
-                sameArtistOnly, differentLanguage);
+                sameArtistOnly, differentLanguage, targetLanguage,
+                minimumQuality, vibeTargets, seedLanguage);
     }
     /**
      * Detects the likely language of a query string.
@@ -226,7 +277,9 @@ public class QueryUnderstanding {
      * Returns neutral weights so the program still runs.
      */
     private static QueryResult defaultResult(String query) {
-        return new QueryResult(new WeightVector(), null, null, false, false);
+        return new QueryResult(new WeightVector(), null, null,
+                false, false, null, 0.5,
+                new java.util.HashMap<>(), "en");
     }
 
     /**

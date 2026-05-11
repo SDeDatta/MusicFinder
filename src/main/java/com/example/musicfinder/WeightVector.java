@@ -32,24 +32,16 @@ public class WeightVector {
      * This represents a neutral query with no modifiers.
      */
     public WeightVector() {
-            // Core mood features — most important for any query
-            energy           = 1.5;
-            valence          = 1.5;
-
-            // Important texture features
-            danceability     = 1.2;
-            acousticness     = 1.3;
-
-            // Useful but secondary
-            tempo            = 1.0;
-            loudness         = 0.8;
-
-            // Rarely query-relevant — reduce their influence
-            instrumentalness = 0.6;
-            liveness         = 0.4;  // live vs studio rarely matters to users
-            speechiness      = 0.4;  // only matters for rap/spoken word queries
-
-            popularityBias   = 0.0;  // neutral until user specifies
+        energy           = 1.2;
+        valence          = 1.1;
+        danceability     = 1.0;
+        acousticness     = 1.2;
+        instrumentalness = 0.5;
+        liveness         = 0.3;
+        speechiness      = 0.4;
+        loudness         = 1.3;
+        tempo            = 0.8;
+        popularityBias   = 0.0;
     }
 
     /**

@@ -149,78 +149,100 @@ public class Song
          * an explicit language column.
          */
         public String inferredLanguage() {
-                String text = (
-                        safe(trackName) + " " +
-                                safe(artists) + " " +
-                                safe(genre)
-                ).toLowerCase();
+                String g = genre.toLowerCase();
 
-                // Spanish / Latin signals
-                if (containsAny(text,
-                        "reggaeton", "latin", "latino", "latina", "corridos",
-                        "banda", "música mexicana", "mexican", "urbano latino",
-                        "bad bunny", "karol g", "peso pluma", "rauw alejandro",
-                        "j balvin", "ozuna", "anuel", "shakira", "rosalía",
-                        "quevedo", "feid", "fuerza regida", "grupo frontera",
-                        "ella", "amor", "corazón", "bebe", "bailando", "despacito",
-                        "mañana", "noche", "vida", "mía", "dónde", "qué")) {
-                        return "es";
-                }
-
-                // Korean signals
-                if (containsAny(text,
-                        "k-pop", "kpop", "korean", "bts", "blackpink", "newjeans",
-                        "stray kids", "twice", "seventeen", "exo", "ive", "aespa")) {
-                        return "ko";
-                }
-
-                // Japanese signals
-                if (containsAny(text,
-                        "j-pop", "jpop", "japanese", "anime", "yoasobi", "ado",
-                        "kenshi yonezu", "eve", "hatsune miku")) {
+                // East Asian
+                if (g.contains("cantopop") || g.contains("mandopop")
+                        || g.contains("chinese") || g.contains("c-pop"))
+                        return "zh";
+                if (g.contains("j-pop") || g.contains("j-rock")
+                        || g.contains("anime") || g.contains("japanese"))
                         return "ja";
-                }
+                if (g.contains("k-pop") || g.contains("korean")
+                        || g.contains("k-rap") || g.contains("k-indie"))
+                        return "ko";
 
-                // French signals
-                if (containsAny(text,
-                        "french", "français", "stromae", "angèle", "aya nakamura",
-                        "pomme", "amour", "bonjour", "je ", "moi", "toi")) {
-                        return "fr";
-                }
+                // Southeast Asian — ADD THESE
+                if (g.contains("opm") || g.contains("filipino")
+                        || g.contains("pilipino") || g.contains("tagalog")
+                        || g.contains("p-pop") || g.contains("pinoy"))
+                        return "tl"; // Tagalog/Filipino
+                if (g.contains("thai") || g.contains("t-pop"))
+                        return "th";
+                if (g.contains("vietnamese") || g.contains("v-pop"))
+                        return "vi";
+                if (g.contains("indonesian") || g.contains("dangdut"))
+                        return "id";
+                if (g.contains("malay") || g.contains("malaysian"))
+                        return "ms";
 
-                // Portuguese / Brazilian signals
-                if (containsAny(text,
-                        "brazil", "brasileiro", "funk carioca", "sertanejo",
-                        "anitta", "luísa sonza", "mc ", "joão", "amor", "vida")) {
-                        return "pt";
-                }
-
-                // Hindi / Bollywood signals
-                if (containsAny(text,
-                        "bollywood", "hindi", "punjabi", "arijit singh",
-                        "shreya ghoshal", "diljit", "badshah", "rahat fateh ali khan")) {
+                // South Asian
+                if (g.contains("bollywood") || g.contains("filmi")
+                        || g.contains("hindi") || g.contains("punjabi")
+                        || g.contains("indian") || g.contains("desi"))
                         return "hi";
+                if (g.contains("tamil") || g.contains("telugu")
+                        || g.contains("kollywood") || g.contains("tollywood"))
+                        return "ta";
+
+                // Romance languages
+                if (g.contains("latin") || g.contains("reggaeton")
+                        || g.contains("salsa") || g.contains("bachata")
+                        || g.contains("flamenco") || g.contains("spanish")
+                        || g.contains("cumbia") || g.contains("tango")
+                        || g.contains("mariachi") || g.contains("norteno")
+                        || g.contains("grupero") || g.contains("banda"))
+                        return "es";
+                if (g.contains("mpb") || g.contains("sertanejo")
+                        || g.contains("pagode") || g.contains("forro")
+                        || g.contains("bossa") || g.contains("axe")
+                        || g.contains("baile funk") || g.contains("portuguese"))
+                        return "pt";
+                if (g.contains("french") || g.contains("chanson")
+                        || g.contains("variete"))
+                        return "fr";
+
+                // Germanic
+                if (g.contains("german") || g.contains("schlager")
+                        || g.contains("volksmusik"))
+                        return "de";
+
+                // Middle Eastern / Turkish
+                if (g.contains("turkish") || g.contains("arabesque")
+                        || g.contains("turk"))
+                        return "tr";
+                if (g.contains("arabic") || g.contains("khaleeji")
+                        || g.contains("shaabi"))
+                        return "ar";
+
+                if (trackName != null) {
+                        if (trackName.matches(".*[\\u3000-\\u9FFF\\uF900-\\uFAFF].*"))
+                                return "ja"; // Japanese/Chinese characters
+                        if (trackName.matches(".*[\\uAC00-\\uD7FF].*"))
+                                return "ko"; // Korean hangul
+                        if (trackName.matches(".*[\\u0400-\\u04FF].*"))
+                                return "ru"; // Cyrillic
+                        if (trackName.matches(".*[\\u0600-\\u06FF].*"))
+                                return "ar"; // Arabic
+                        if (trackName.matches(".*[\\u0900-\\u097F].*"))
+                                return "hi"; // Devanagari (Hindi)
+                        if (trackName.matches(".*[\\u0E00-\\u0E7F].*"))
+                                return "th"; // Thai
                 }
 
-                // If nothing matches, assume English
+                // Default English
                 return "en";
-        }
-
-        private boolean containsAny(String text, String... terms) {
-                for (String term : terms) {
-                        if (text.contains(term.toLowerCase())) {
-                                return true;
-                        }
-                }
-                return false;
-        }
-
-        private String safe(String s) {
-                return s == null ? "" : s;
         }
         public String toString() {
                 return String.format("\"%s\" by %s | Genre: %s | Popularity: %d | Energy: %.2f | Valence: %.2f",
                         trackName, artists, genre, popularity, energy, valence);
         }
 
+        public void setGenre(String genre) {
+                this.genre = genre;
+        }
+
+        public void setPopularity(int popularity) {
+                this.popularity = popularity;
+        }
 }

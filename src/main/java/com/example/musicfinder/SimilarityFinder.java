@@ -10,8 +10,8 @@ public class SimilarityFinder {
      */
     // How much genre influences the final score vs audio features
 // 0.7 audio + 0.3 genre = genre matters but audio features dominate
-    private static final double AUDIO_WEIGHT = 0.5;
-    private static final double GENRE_WEIGHT = 0.5;
+    private static final double AUDIO_WEIGHT = 0.75;
+    private static final double GENRE_WEIGHT = 0.25;
 
     public static List<Song> findSimilar(Song seed, List<Song> allSongs, int topN) {
         // Organizes songs based on their similarity score (see line 40 with topSongs input)
@@ -170,5 +170,163 @@ public class SimilarityFinder {
         }
 
         return deduped;
+    }
+    /**
+     * Scores how well a song matches the requested vibe targets.
+     * vibeTargets maps feature names to ideal values (0.0-1.0).
+     * Returns a score between 0.0 and 1.0.
+     * A score of 1.0 means the song perfectly matches every target.
+     *
+     * This is different from cosine similarity — it measures absolute
+     * feature distance from targets rather than directional alignment
+     * with the seed song. It answers "how groovy is this song"
+     * rather than "how similar is this to the seed."
+     */
+    public static double vibeScore(Song song, Map<String, Double> vibeTargets) {
+        if (vibeTargets == null || vibeTargets.isEmpty()) return 1.0;
+
+        double totalScore = 0;
+        int count = 0;
+
+        for (Map.Entry<String, Double> entry : vibeTargets.entrySet()) {
+            double target = entry.getValue();
+            double actual = getFeatureValue(song, entry.getKey());
+            // Score = 1 - absolute distance from target
+            // A song hitting exactly the target gets 1.0
+            // A song 0.5 away gets 0.5
+            double featureScore = 1.0 - Math.abs(actual - target);
+            totalScore += featureScore;
+            count++;
+        }
+
+        return count > 0 ? totalScore / count : 1.0;
+    }
+
+    /**
+     * Returns the value of a named audio feature from a song.
+     * Used by vibeScore to look up features by name.
+     */
+    private static double getFeatureValue(Song song, String featureName) {
+        switch (featureName.toLowerCase()) {
+            case "energy":           return song.getEnergy();
+            case "valence":          return song.getValence();
+            case "danceability":     return song.getDanceability();
+            case "acousticness":     return song.getAcousticness();
+            case "instrumentalness": return song.getInstrumentalness();
+            case "liveness":         return song.getLiveness();
+            case "speechiness":      return song.getSpeechiness();
+            case "loudness":         return (song.getLoudness() + 60) / 60.0;
+            case "tempo":            return song.getTempo() / 250.0;
+            default:                 return 0.5;
+        }
+    }
+    /**
+     * Quality-gated recommendation finder.
+     * Instead of always returning exactly topN results, returns all
+     * candidates that score above minimumQuality.
+     * Combines three signals:
+     *   1. Weighted cosine similarity to seed song (how similar is it?)
+     *   2. Vibe score against absolute targets (does it have the right vibe?)
+     *   3. Popularity bias from query
+     *
+     * The final score blends all three. Only songs above minimumQuality
+     * are returned, ensuring every result is a genuine quality match.
+     * maxResults caps the output in case threshold is too permissive.
+     */
+    public static List<Song> findSimilarQualityGated(
+            Song seed,
+            List<Song> candidates,
+            WeightVector weights,
+            Map<String, Double> vibeTargets,
+            double minimumQuality,
+            int maxResults) {
+
+        double[] weightArray = weights.toArray();
+
+        // Score every candidate
+        List<double[]> scored = new ArrayList<>(); // [score, index]
+
+        for (int i = 0; i < candidates.size(); i++) {
+            Song candidate = candidates.get(i);
+            if (candidate.getTrackId().equals(seed.getTrackId())) continue;
+
+            // Signal 1 — weighted cosine similarity to seed
+            double similarityScore = weightedCosineSimilarity(
+                    seed.toFeatureVector(),
+                    candidate.toFeatureVector(),
+                    weightArray
+            );
+
+            // Signal 2 — absolute vibe match
+            double vibe = vibeScore(candidate, vibeTargets);
+
+            // Signal 3 — genre similarity
+            double genreScore = genreSimilarity(seed, candidate);
+
+            // Signal 4 — popularity bias
+            double popularityScore = 0;
+            if (weights.popularityBias != 0) {
+                double normalizedPop = candidate.getPopularity() / 100.0;
+                popularityScore = (weights.popularityBias > 0)
+                        ? normalizedPop * (weights.popularityBias / 100.0)
+                        : (1.0 - normalizedPop) * (-weights.popularityBias / 100.0);
+            }
+
+            // Blend signals
+            // If vibeTargets exist, vibe score matters a lot
+            // If no vibe targets, similarity to seed dominates
+            double vibeWeight = vibeTargets.isEmpty() ? 0.0 : 0.35;
+            double simWeight  = vibeTargets.isEmpty() ? 0.65 : 0.40;
+            double genreWeight = 0.15;
+            double popWeight   = 0.10;
+
+            // Normalize weights to sum to 1.0
+            double totalWeight = simWeight + vibeWeight + genreWeight + popWeight;
+
+            double finalScore = ((simWeight  * similarityScore)
+                    +  (vibeWeight * vibe)
+                    +  (genreWeight * genreScore)
+                    +  (popWeight  * popularityScore))
+                    / totalWeight;
+
+            scored.add(new double[]{finalScore, i});
+        }
+
+        // Sort by score descending
+        scored.sort((a, b) -> Double.compare(b[0], a[0]));
+
+        // Apply quality gate — only keep songs above minimumQuality
+        List<Song> results = new ArrayList<>();
+        Set<String> seenNormalized = new HashSet<>();
+
+        for (double[] entry : scored) {
+            double score = entry[0];
+
+            // Stop if below quality threshold
+            if (score < minimumQuality) break;
+
+            Song s = candidates.get((int) entry[1]);
+
+            // Deduplicate by normalized name+artist
+            String key = s.getTrackName().toLowerCase()
+                    .replaceAll("[^a-z0-9]", "")
+                    + "|"
+                    + s.getArtists().toLowerCase()
+                    .replaceAll("[^a-z0-9]", "");
+
+            if (seenNormalized.add(key)) {
+                results.add(s);
+                System.out.println("  ✓ [" + String.format("%.3f", score) + "] "
+                        + s.getTrackName() + " by " + s.getArtists());
+            }
+
+            if (results.size() >= maxResults) break;
+        }
+
+        System.out.println("Quality gate (" + minimumQuality + "): "
+                + results.size() + " results passed from "
+                + candidates.size() + " candidates");
+
+        return results;
     }
 }
