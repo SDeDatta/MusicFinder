@@ -4,6 +4,7 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
@@ -163,6 +164,11 @@ public class HomeController implements Initializable {
             transitionToStep1();
             return;
         }
+        if (confirmedSeedText.trim().length() < 2) {
+            seedErrorLabel.setText("Please enter a valid song name.");
+            transitionToStep1();
+            return;
+        }
 
         // Combine seed and modifier into one natural language query
         String modifier = modifierField.getText().trim();
@@ -256,30 +262,10 @@ public class HomeController implements Initializable {
                             uniqueCandidates,
                             finalResult.getWeights(),
                             finalResult.getVibeTargets(),
-                            finalResult.getMinimumQuality(),
-                            songCount  // max results cap — user's requested count
+                            Math.max(finalResult.getMinimumQuality(), 0.85),
+                            songCount
                     );
 
-// If quality gate returned nothing, lower threshold and retry
-                    /*if (recommendations.isEmpty()) {
-                        System.out.println("Quality gate too strict — retrying with lower threshold");
-                        recommendations = SimilarityFinder.findSimilarQualityGated(
-                                finalSeed,
-                                uniqueCandidates,
-                                finalResult.getWeights(),
-                                finalResult.getVibeTargets(),
-                                finalResult.getMinimumQuality() * 0.85, // 15% looser
-                                songCount
-                        );
-                    }
-
-// If still empty, fall back to standard finder
-                    if (recommendations.isEmpty()) {
-                        System.out.println("Falling back to standard similarity finder");
-                        recommendations = SimilarityFinder.findSimilar(
-                                finalSeed, uniqueCandidates, songCount, finalResult.getWeights()
-                        );
-                    }*/
                     if (recommendations.isEmpty()) {
                         showNoResultsError(finalSeed, fullQuery);
                         return;
@@ -520,41 +506,44 @@ public class HomeController implements Initializable {
         title.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 28px;" +
                 "-fx-font-weight: bold; -fx-text-fill: #e0f0ff;");
 
-        String searchedFor = songName != null && !songName.isBlank()
-                ? "\"" + songName + "\"" + (artistName != null ? " by " + artistName : "")
-                : "\"" + confirmedSeedText + "\"";
+        // Always show what the user typed — never show "unknown"
+        String displayName = (songName != null && !songName.isBlank())
+                ? songName : confirmedSeedText;
+        String displayArtist = (artistName != null && !artistName.isBlank())
+                ? artistName : null;
+
+        String searchedFor = "\"" + displayName + "\""
+                + (displayArtist != null ? " by " + displayArtist : "");
+
         Label searched = new Label("We looked for " + searchedFor);
         searched.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 14px;" +
                 "-fx-text-fill: #ff6b6b; -fx-font-style: italic;");
+
+        Label hint = new Label(
+                "This song may not be in our dataset.\n" +
+                        "Try checking the spelling or using a different song."
+        );
+        hint.setStyle("-fx-font-family: 'Georgia'; -fx-font-size: 12px;" +
+                "-fx-text-fill: #5a8a9f;");
+        hint.setWrapText(true);
+        hint.setMaxWidth(480);
+        hint.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+        hint.setAlignment(Pos.CENTER);
 
         Button tryAgain = new Button("← Try Again");
         tryAgain.setStyle("-fx-background-color: #00d4aa; -fx-background-radius: 26;" +
                 "-fx-text-fill: #0a1628; -fx-font-family: 'Georgia';" +
                 "-fx-font-size: 14px; -fx-font-weight: bold;" +
                 "-fx-cursor: hand; -fx-padding: 12 32 12 32;");
-        tryAgain.setOnAction(e -> goHomeWithQuery(""));
+        tryAgain.setOnAction(e ->  HomeController.this.goHomeWithQuery(""));
 
-        errorScreen.getChildren().addAll(icon, title, searched, tryAgain);
+        errorScreen.getChildren().addAll(icon, title, searched, hint, tryAgain);
+
         Scene scene = new Scene(errorScreen, 1000, 700);
         scene.getStylesheets().add(
                 HelloApplication.class.getResource("styles.css").toExternalForm()
         );
         HelloApplication.primaryStage.setScene(scene);
-    }
-
-    private void goHomeWithQuery(String query) {
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    HelloApplication.class.getResource("HomeScreen.fxml")
-            );
-            Scene scene = new Scene(loader.load(), 1000, 700);
-            scene.getStylesheets().add(
-                    HelloApplication.class.getResource("styles.css").toExternalForm()
-            );
-            HelloApplication.primaryStage.setScene(scene);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
     /**
      * Shows a friendly screen when no songs pass the quality threshold.
@@ -623,21 +612,88 @@ public class HomeController implements Initializable {
      * Removes featured artist tags, punctuation, extra spaces,
      * and common suffixes that vary across datasets.
      */
+    /**
+     * Returns true if a song should be excluded from recommendations.
+     * Filters out children's content, novelty songs, karaoke tracks,
+     * covers, and other low-quality recommendation contexts.
+     */
     private boolean isBadContextForGeneralMusic(Song s) {
-        String text = (s.getTrackName() + " "
-                + s.getArtists() + " "
-                + s.getGenre()).toLowerCase();
+        String name   = s.getTrackName().toLowerCase();
+        String artist = s.getArtists().toLowerCase();
+        String genre  = s.getGenre().toLowerCase();
+        String all    = name + " " + artist + " " + genre;
 
-        return text.contains("my little pony")
-                || text.contains("disney")
-                || text.contains("kids")
-                || text.contains("children")
-                || text.contains("cartoon")
-                || text.contains("soundtrack")
-                || text.contains("musical")
-                || text.contains("karaoke")
-                || text.contains("cover")
-                || text.contains("tribute")
-                || text.contains("comedy");
+        // Children's and animated content
+        if (all.contains("my little pony")) return true;
+        if (all.contains("peppa pig"))      return true;
+        if (all.contains("paw patrol"))     return true;
+        if (all.contains("cocomelon"))      return true;
+        if (all.contains("baby shark"))     return true;
+        if (all.contains("sesame street"))  return true;
+        if (all.contains("dora"))           return true;
+        if (all.contains("bluey"))          return true;
+        if (genre.contains("children"))     return true;
+        if (genre.contains("kids"))         return true;
+
+        // Disney / animated films
+        if (all.contains("disney"))         return true;
+        if (genre.contains("cartoon"))      return true;
+
+        // Novelty and comedy
+        if (genre.contains("comedy"))       return true;
+        if (genre.contains("novelty"))      return true;
+        if (all.contains("parody"))         return true;
+
+        // Karaoke and tribute
+        if (all.contains("karaoke"))        return true;
+        if (all.contains("tribute"))        return true;
+        if (all.contains("made famous"))    return true;
+        if (all.contains("in the style of")) return true;
+        if (artist.contains("karaoke"))     return true;
+
+        // Cover bands and sound-alike artists
+        if (all.contains("cover"))          return true;
+        if (artist.contains("music box"))   return true;
+        if (artist.contains("lullaby"))     return true;
+        if (all.contains("lullaby"))        return true;
+        if (all.contains("nursery"))        return true;
+        if (all.contains("bedtime"))        return true;
+
+        // Meditation and sleep content that often has wrong genre tags
+        if (name.contains("white noise"))   return true;
+        if (name.contains("rain sounds"))   return true;
+        if (name.contains("sleep sounds"))  return true;
+        if (name.contains("nature sounds")) return true;
+        if (name.contains("binaural"))      return true;
+
+        // Ringtones and sound effects
+        if (all.contains("ringtone"))       return true;
+        if (all.contains("sound effect"))   return true;
+
+        // Musical theatre that bleeds into dataset
+        if (genre.contains("musical"))      return true;
+        if (genre.contains("show tunes"))   return true;
+
+        // Suspiciously short tracks — likely intros, skits, or sound effects
+        // Under 60 seconds (60,000 ms) is almost never a real song
+        if (s.getDurationMs() > 0 && s.getDurationMs() < 60000) return true;
+
+        return false;
+    }
+    private void goHomeWithQuery(String query) {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    HelloApplication.class.getResource("HomeScreen.fxml")
+            );
+
+            Scene scene = new Scene(loader.load(), 1000, 700);
+            scene.getStylesheets().add(
+                    HelloApplication.class.getResource("styles.css").toExternalForm()
+            );
+
+            HelloApplication.primaryStage.setScene(scene);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -41,61 +41,55 @@ public class QueryUnderstanding {
     - sameArtistOnly: true if user wants more songs by same artist
     - differentLanguage: true if user wants different language
     - targetLanguage: ISO code if differentLanguage is true, else null
-    - "- seedLanguage: the ISO language code of the seed song itself. " +
-              "Use your knowledge of the song to determine what language it is sung in. " +
-              "Examples: 'en' for English, 'es' for Spanish, 'tl' for Tagalog, " +
-              "'ko' for Korean, 'ja' for Japanese, 'pt' for Portuguese, 'fr' for French. " +
-              "Always provide this — never null.\\n"
+    - seedLanguage: the ISO language code of the seed song itself. Use your knowledge of the song to determine what language it is sung in. Examples: en for English, es for Spanish, tl for Tagalog, ko for Korean, ja for Japanese, pt for Portuguese, fr for French. Always provide this, never null.
     - minimumQuality: a threshold between 0.0 and 1.0 representing
       how strictly candidates must match the described vibe.
       Use 0.5 for vague queries with no strong descriptors.
       Use 0.65-0.75 for queries with clear mood words like
-      "dreamy", "energetic", "melancholic".
+      dreamy, energetic, melancholic.
       Use 0.75-0.85 for very specific genre or style requests
-      like "EDM", "groovy", "classical piano", "lo-fi hip hop".
+      like EDM, groovy, classical piano, lo-fi hip hop.
       Higher = fewer but more precise results.
     - vibeTargets: a JSON object describing the IDEAL audio feature
       values for the requested vibe, independent of the seed song.
       These are absolute target values (0.0-1.0) not weights.
       Only include features that the query specifically implies.
-      Example for "groovy EDM":
+      Example for groovy EDM:
       {"danceability": 0.85, "energy": 0.80, "tempo": 0.75,
        "acousticness": 0.05, "valence": 0.70}
-      Example for "dreamy acoustic":
+      Example for dreamy acoustic:
       {"acousticness": 0.85, "energy": 0.25, "valence": 0.50}
       Leave as {} if no strong vibe descriptors in query.
     
     Example input: "songs like Bohemian Rhapsody but more groovy and EDM"
     Example output:
-            {
-                 "energy": 2.0,
-                 "valence": 1.2,
-                 "danceability": 2.5,
-                 "acousticness": 0.2,
-                 "instrumentalness": 1.0,
-                 "liveness": 0.5,
-                 "speechiness": 0.5,
-                 "loudness": 1.5,
-                 "tempo": 1.8,
-                 "popularityBias": 0,
-                 "seedSong": "Bohemian Rhapsody",
-                 "seedArtist": "Queen",
-                 "sameArtistOnly": false,
-                 "differentLanguage": false,
-                 "targetLanguage": null,
-                 "minimumQuality": 0.78,
-                 "seedLanguage": "en",
-                 "vibeTargets": {
-                   "danceability": 0.85,
-                   "energy": 0.82,
-                   "tempo": 0.78,
-                   "acousticness": 0.05,
-                   "valence": 0.72
-                 }
-               }
+    {
+      "energy": 2.0,
+      "valence": 1.2,
+      "danceability": 2.5,
+      "acousticness": 0.2,
+      "instrumentalness": 1.0,
+      "liveness": 0.5,
+      "speechiness": 0.5,
+      "loudness": 1.5,
+      "tempo": 1.8,
+      "popularityBias": 0,
+      "seedSong": "Bohemian Rhapsody",
+      "seedArtist": "Queen",
+      "sameArtistOnly": false,
+      "differentLanguage": false,
+      "targetLanguage": null,
+      "minimumQuality": 0.78,
+      "seedLanguage": "en",
+      "vibeTargets": {
+        "danceability": 0.85,
+        "energy": 0.82,
+        "tempo": 0.78,
+        "acousticness": 0.05,
+        "valence": 0.72
+      }
     }
     """;
-
     /**
      * Main method — takes a raw user query and returns a fully populated
      * QueryResult containing both the WeightVector and the seed song info.
@@ -193,8 +187,8 @@ public class QueryUnderstanding {
                 ? json.get("seedLanguage").getAsString().toLowerCase().trim()
                 : "en";
 
-        // Parse minimumQuality — default 0.5 if missing
-        double minimumQuality = getDouble(json, "minimumQuality", 0.5);
+        // Parse minimumQuality — default 0.88 if missing
+        double minimumQuality = getDouble(json, "minimumQuality", 0.88);
 
         // Parse vibeTargets — a nested JSON object of feature → target value
         Map<String, Double> vibeTargets = new java.util.HashMap<>();
